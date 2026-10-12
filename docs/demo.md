@@ -31,6 +31,21 @@ adb shell am start -n org.ngram.messenger/org.telegram.messenger.DefaultIcon --e
 
 Поднимите на компьютере любой макет с интерфейсом OpenAI и укажите в провайдере адрес `http://10.0.2.2:<порт>/v1` — так из эмулятора виден компьютер. Адрес без `https` разрешён, потому что это локальная сеть.
 
+## Проверка плагина
+
+Отладочная сборка принимает файл плагина при запуске — он устанавливается и включается без вопросов:
+
+```bash
+adb push my.plugin /data/local/tmp/my.plugin
+adb shell am start -n org.ngram.messenger/org.telegram.messenger.DefaultIcon --es plugin /data/local/tmp/my.plugin
+adb logcat -s NgramPlugin
+```
+
+Команды и пункты меню плагина работают и в демо-режиме: сообщения «отправляются» выдуманному собеседнику.
+
+> [!NOTE]
+> На эмуляторе с программной отрисовкой экран чата со включённым стеклом (`--ez glass true`) может обрушить сам эмулятор. Чаты проверяйте с `--ez glass false`, стекло — на списке чатов и в настройках.
+
 ## Как это сделано
 
 `org.ngram.messenger.debug.Demo`:
@@ -39,7 +54,7 @@ adb shell am start -n org.ngram.messenger/org.telegram.messenger.DefaultIcon --e
 - `answer` — отвечает на `messages.getDialogs`, `messages.getHistory`, `updates.getState`, `updates.getDifference`, `messages.sendMessage`;
 - `harmless` — решает, какие запросы можно пропустить в сеть.
 
-Запросы перехватываются в `NgramHost.onRequest` — это та же точка, через которую в будущем смогут работать плагины.
+Запросы перехватываются в `NgramHost.onRequest` — это та же точка, через которую работают плагины (в демо-режиме до них запросы не доходят: всё, что не знает демо, отбрасывается раньше).
 
 Две тонкости, на которых легко споткнуться:
 

@@ -84,6 +84,7 @@ $ANDROID_NDK/toolchains/llvm/prebuilt/<платформа>/bin/llvm-strip --stri
 
 - Собираются только `TMessagesProj` и `Ngram_App`; остальные модули приложений Telegram оставлены в репозитории ради слияний, но в `settings.gradle` не подключены.
 - Плагин `google-services` убран: у Ngram нет проекта Firebase.
+- Добавлен плагин [Chaquopy](https://chaquo.com/chaquopy/): он встраивает Python 3.11 для плагинов и сам скачивает его с Maven Central. Это добавляет около 18 МБ на архитектуру.
 - В корневом `build.gradle` исправлена проверка пути, из-за которой сборка не шла на Windows.
 
 ## Обновление до новой версии Telegram

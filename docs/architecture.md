@@ -57,6 +57,10 @@ NgramHooks.install(new NgramHost());
 | `string` | `LocaleController` | Собственная формулировка для отдельных текстов (название приложения, первый экран). |
 | `fillMessageMenu`, `onMessageMenu` | `ChatActivity` | Пункты Ngram в меню сообщения. |
 | `chatMenuTitle`, `onChatMenu` | `ChatActivity` | Пункт Ngram в меню чата. |
+| `profileMenuTitle`, `onProfileMenu` | `ProfileActivity` | Пункт Ngram в меню профиля. |
+| `onDoubleTap` | `ChatActivity` | Двойное нажатие на сообщение, когда пользователь выбрал не реакцию. |
+| `confirm` | `ChatActivityEnterView`, `VoIPHelper` | Вопрос перед стикером, GIF или звонком; без посредника действие выполняется сразу. |
+| `onSendMessage` | `SendMessagesHelper.sendMessage` | Сообщение перед отправкой: плагин может изменить его или отменить. |
 
 Сейчас `onResponse` и `onUpdates` ничего не делают — это место для будущих плагинов.
 
