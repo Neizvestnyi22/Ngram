@@ -1,46 +1,154 @@
-## Telegram messenger for Android
+<div align="center">
 
-[Telegram](https://telegram.org) is a messaging app with a focus on speed and security. It’s superfast, simple and free.
-This repo contains the official source code for [Telegram App for Android](https://play.google.com/store/apps/details?id=org.telegram.messenger).
+<img src="docs/screenshots/icon.png" width="96" alt="Ngram">
 
-## Creating your Telegram Application
+# Ngram
 
-We welcome all developers to use our API and source code to create applications on our platform.
-There are several things we require from **all developers** for the moment.
+**Неофициальный клиент Telegram для Android: весь Telegram плюс настраиваемое жидкое стекло и ассистент с вашим ключом ИИ.**
 
-1. [**Obtain your own api_id**](https://core.telegram.org/api/obtaining_api_id) for your application.
-2. Please **do not** use the name Telegram for your app — or make sure your users understand that it is unofficial.
-3. Kindly **do not** use our standard logo (white paper plane in a blue circle) as your app's logo.
-3. Please study our [**security guidelines**](https://core.telegram.org/mtproto/security_guidelines) and take good care of your users' data and privacy.
-4. Please remember to publish **your** code too in order to comply with the licences.
+Основан на исходном коде Telegram для Android 12.10.6 · лицензия GPL-2.0
 
-### API, Protocol documentation
+[English](README.en.md) · [Как устроено](docs/architecture.md) · [Сборка](docs/building.md) · [Что изменено в Telegram](docs/changes.md)
 
-Telegram API manuals: https://core.telegram.org/api
+</div>
 
-MTproto protocol manuals: https://core.telegram.org/mtproto
+<p align="center">
+  <img src="docs/screenshots/chats.png" width="24%" alt="Список чатов">
+  <img src="docs/screenshots/chat.png" width="24%" alt="Чат">
+  <img src="docs/screenshots/look-glass.png" width="24%" alt="Настройки стекла">
+  <img src="docs/screenshots/assistant.png" width="24%" alt="Ассистент">
+</p>
 
-### Compilation Guide
+## Что это
 
-**Note**: In order to support [reproducible builds](https://core.telegram.org/reproducible-builds), this repo contains dummy release.keystore,  google-services.json and filled variables inside BuildVars.java. Before publishing your own APKs please make sure to replace all these files with your own.
+Ngram — это Telegram для Android, в который добавлено своё:
 
-You will require Android Studio 2025.1.4, Android NDK 27.2.12479018 and Android SDK 36.
+- **Оформление.** Ползунки для жидкого стекла (плотность, размытие, преломление, блик по краю), три вида отклика кнопок, переключатели в стиле iOS и несколько настроек главного экрана.
+- **Ассистент.** Чат с ИИ и действия над сообщениями: объяснить, перевести, пересказать, предложить ответ. Работает с вашим собственным ключом API — OpenAI, Claude, Gemini, OpenRouter, локальный Ollama и любой совместимый сервис.
+- **Своё имя и значок.** Ngram не выдаёт себя за официальное приложение.
 
-1. Clone the Telegram source code with its submodules:
-   ```bash
-   git clone --recursive --shallow-submodules https://github.com/DrKLO/Telegram.git Telegram
-   ```
-   In case you forgot the `--recursive` flag, change to the `Telegram` directory and run:
-   ```bash
-   git submodule init && git submodule update --init --recursive --depth=1
-   ```
-2. Copy your release.keystore into TMessagesProj/config
-3. Fill out RELEASE_KEY_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_STORE_PASSWORD in gradle.properties to access your  release.keystore
-4.  Go to https://console.firebase.google.com/, create two android apps with application IDs org.telegram.messenger and org.telegram.messenger.beta, turn on firebase messaging and download google-services.json, which should be copied to the same folder as TMessagesProj.
-5. Open the project in the Studio (note that it should be opened, NOT imported).
-6. Fill out values in TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java – there’s a link for each of the variables showing where and which data to obtain.
-7. You are ready to compile Telegram.
+Всё остальное — чаты, звонки, истории, секретные чаты, папки, боты — это код самого Telegram без переделок.
 
-### Localization
+> [!IMPORTANT]
+> Ngram не связан с Telegram и не является его официальным приложением. Версия 3.0 — ранняя: её собственные функции проверены в эмуляторе на выдуманном аккаунте, см. раздел [«Состояние»](#состояние).
 
-We moved all translations to https://translations.telegram.org/en/android/. Please use it.
+## Возможности Ngram
+
+### Оформление
+
+`Настройки → Ngram → Оформление`
+
+| Настройка | Что делает |
+| --- | --- |
+| Плотность стекла | Насколько стеклянные панели прозрачны. 100% — как в Telegram, Ngram начинает с 80%. |
+| Размытие под прозрачным стеклом | Панель вкладок и круглые кнопки. 0% — чистая линза. |
+| Размытие под матовым стеклом | Заголовки, поле ввода, панели. |
+| Преломление по краю | Насколько край стекла искажает то, что под ним. Нужен Android 13+. |
+| Блик по краю | Яркость светлой линии по контуру. |
+| Отклик кнопок | «Желе» — кнопка сплющивается и дрожит; «Стекло» — набухает, как капля; «Обычный» — как в Telegram. |
+| Переключатели как в iOS | Широкая зелёная капсула вместо тонкого переключателя. |
+| Жирный шрифт системы | Заголовки рисуются шрифтом телефона, а не встроенным Roboto. |
+| Подписи на панели вкладок | Без них на панели остаются одни значки. |
+| Кнопка камеры для историй | Убирает круглую кнопку над «Новым сообщением». |
+
+Подробно, с указанием мест в коде: [docs/look.md](docs/look.md).
+
+<p align="center">
+  <img src="docs/screenshots/look-controls.png" width="24%" alt="Отклик кнопок и элементы">
+  <img src="docs/screenshots/chats-icons-only.png" width="24%" alt="Панель вкладок без подписей">
+  <img src="docs/screenshots/settings.png" width="24%" alt="Раздел Ngram в настройках">
+  <img src="docs/screenshots/intro.png" width="24%" alt="Первый экран">
+</p>
+
+### Ассистент
+
+`Настройки → Ngram → Ассистент`
+
+- Провайдеры на выбор, ключ хранится на устройстве в зашифрованном виде (Android Keystore).
+- Запрос уходит с телефона **прямо провайдеру** — ни Telegram, ни какие-либо серверы Ngram в этом не участвуют. Серверов у Ngram нет вовсе.
+- В меню сообщения и в меню чата появляется пункт «Ассистент». Текст чата отправляется провайдеру только после выбора действия, а в самый первый раз — только после вашего согласия.
+- Ответы оформляются: заголовки, списки, код, цитаты.
+
+Подробно: [docs/assistant.md](docs/assistant.md).
+
+<p align="center">
+  <img src="docs/screenshots/message-menu.png" width="24%" alt="Пункт «Ассистент» в меню сообщения">
+  <img src="docs/screenshots/assistant-replies.png" width="24%" alt="Варианты ответа">
+  <img src="docs/screenshots/assistant-provider.png" width="24%" alt="Настройка провайдера">
+</p>
+
+## Установка
+
+Готовые сборки, когда они есть, лежат на странице [Releases](../../releases). Собрать приложение самому: [docs/building.md](docs/building.md).
+
+Нужен Android 8.0 или новее.
+
+## Как это устроено
+
+Код Telegram лежит в модуле `TMessagesProj` и почти не тронут. Всё своё Ngram держит в отдельном модуле `Ngram_App`, а с кодом Telegram общается через три небольших класса.
+
+```mermaid
+flowchart LR
+    subgraph T["TMessagesProj — код Telegram"]
+        TG["Экраны и ядро Telegram"]
+        CORE["org.ngram.core<br/>NgramHooks · NgramConfig · NgramMotion"]
+        TG -- "спрашивает" --> CORE
+    end
+    subgraph N["Ngram_App — код Ngram"]
+        HOST["NgramHost"]
+        LOOK["Оформление"]
+        AI["Ассистент"]
+        HOST --> LOOK
+        HOST --> AI
+    end
+    CORE -- "вызывает" --> HOST
+    N -- "использует классы" --> T
+```
+
+- В коде Telegram изменено около двадцати файлов, и каждое изменение помечено комментарием `// Ngram:`. Полный список — в [docs/changes.md](docs/changes.md).
+- Благодаря этому новую версию Telegram можно подтянуть обычным `git merge`.
+
+Подробно: [docs/architecture.md](docs/architecture.md).
+
+## Структура репозитория
+
+| Папка | Что в ней |
+| --- | --- |
+| [`Ngram_App/`](Ngram_App) | Приложение Ngram: имя, значок, манифест и все собственные функции. |
+| [`Ngram_App/.../messenger/ui`](Ngram_App/src/main/java/org/ngram/messenger/ui) | Экраны Ngram: оформление, ассистент, «О приложении». |
+| [`Ngram_App/.../messenger/ai`](Ngram_App/src/main/java/org/ngram/messenger/ai) | Ассистент: провайдеры, сетевой клиент, готовые задания. |
+| [`TMessagesProj/.../org/ngram/core`](TMessagesProj/src/main/java/org/ngram/core) | Три класса, через которые код Telegram обращается к Ngram. |
+| [`TMessagesProj/`](TMessagesProj) | Код Telegram для Android. |
+| [`docs/`](docs) | Документация. |
+
+## Состояние
+
+Проверено в эмуляторе Android 16 на выдуманном аккаунте (отладочный [демо-режим](docs/demo.md)), на отладочной и на оптимизированной сборке:
+
+- запуск, список чатов, настройки;
+- экран оформления, действие ползунков стекла, отключение подписей вкладок и кнопки камеры;
+- ассистент на локальном макете провайдера: список моделей, ответ с потоковой выдачей, пункт в меню сообщения, согласие на отправку.
+
+Не проверено автором:
+
+- вход и работа с настоящим аккаунтом;
+- сборка для arm64 на телефоне;
+- ассистент с настоящим ключом.
+
+Чего пока нет:
+
+- плагинов;
+- в ассистенте — нескольких разговоров, картинок и распознавания речи;
+- уведомлений через Google (нужен свой проект Firebase) и карт Google (нужен свой ключ);
+- сборки для 32-битных телефонов.
+
+История изменений: [CHANGELOG.md](CHANGELOG.md).
+
+## Лицензия и благодарности
+
+Ngram распространяется под [GNU GPL версии 2](LICENSE), как и код, на котором он основан.
+
+- [Telegram для Android](https://github.com/DrKLO/Telegram) — © Telegram, GPL-2.0. Почти весь код в этом репозитории написан его авторами.
+- [Markwon](https://github.com/noties/Markwon) — оформление ответов ассистента, Apache-2.0.
+
+Изменения, внесённые в код Telegram, перечислены в [docs/changes.md](docs/changes.md).
