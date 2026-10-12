@@ -74,6 +74,16 @@ public final class NgramConfig {
     public static boolean stories = true;
     /** Text shown at the top of the chat list instead of the Ngram wordmark; empty for the wordmark. */
     public static String mainTitle = "";
+    /** The number of unread chats next to the back arrow of a chat, as on iOS. */
+    public static boolean backCounter = true;
+    /** The capsule in the header of a chat is as wide as its title, not as the screen. */
+    public static boolean fitTitle = true;
+    /** The attach and microphone buttons stand apart from the message field, as on iOS. */
+    public static boolean iosInput = true;
+    /** A Feed tab on the main screen: the newest posts of the user's channels in one list. */
+    public static boolean feedTab = true;
+    /** Every profile gets a coloured header, taken from the colour of its avatar. */
+    public static boolean colorProfiles = true;
 
     // ---- chats --------------------------------------------------------------------------
 
@@ -154,6 +164,11 @@ public final class NgramConfig {
         storyButton = prefs.getBoolean("storyButton", true);
         stories = prefs.getBoolean("stories", true);
         mainTitle = prefs.getString("mainTitle", "");
+        backCounter = prefs.getBoolean("backCounter", true);
+        fitTitle = prefs.getBoolean("fitTitle", true);
+        iosInput = prefs.getBoolean("iosInput", true);
+        feedTab = prefs.getBoolean("feedTab", true);
+        colorProfiles = prefs.getBoolean("colorProfiles", true);
 
         seconds = prefs.getBoolean("seconds", false);
         exactNumbers = prefs.getBoolean("exactNumbers", false);
@@ -291,6 +306,41 @@ public final class NgramConfig {
             sb.append(digits.charAt(i));
         }
         return sb.toString();
+    }
+
+    // The header colours of profiles, in the order of Telegram's avatar colours: red, orange,
+    // violet, green, cyan, blue, pink. Each row: gradient from, gradient to, ring from, ring to.
+    private static final int[][] PROFILE_COLORS = {
+        {0xE0574B, 0xC43D52, 0xFFA07A, 0xFF6F61},
+        {0xE38B3C, 0xD7602F, 0xFFCB6B, 0xFF9A4A},
+        {0x8E6BE8, 0x6A4FD0, 0xC0A6FF, 0x8F7DFF},
+        {0x49B263, 0x2B9762, 0x93E38E, 0x52CC80},
+        {0x3BAAC6, 0x2A86B8, 0x84DDEA, 0x4FBBE3},
+        {0x4A93E6, 0x3A6FD8, 0x8CC5FF, 0x5C9FFF},
+        {0xE0648F, 0xC4487F, 0xFFA3C2, 0xFF7AA8},
+    };
+    private static final org.telegram.messenger.MessagesController.PeerColor[] profileColors =
+        new org.telegram.messenger.MessagesController.PeerColor[PROFILE_COLORS.length];
+
+    /** The header colour Ngram gives to the profile of a peer that has not chosen its own. */
+    public static org.telegram.messenger.MessagesController.PeerColor profileColor(long peerId) {
+        final int index = (int) Math.abs(peerId % PROFILE_COLORS.length);
+        if (profileColors[index] == null) {
+            final int[] c = PROFILE_COLORS[index];
+            profileColors[index] = org.telegram.messenger.MessagesController.PeerColor.ngram(-100 - index, c[0], c[1], c[2], c[3]);
+        }
+        return profileColors[index];
+    }
+
+    /** A count that has to fit next to an icon: 7, 42, 999, 1.2K, 15K, 1.1M. */
+    public static String shortCount(int number) {
+        if (number < 1000) {
+            return Integer.toString(Math.max(0, number));
+        }
+        final boolean millions = number >= 1_000_000;
+        final float value = number / (millions ? 1_000_000f : 1000f);
+        final String digits = value >= 10f ? Integer.toString((int) value) : String.format(Locale.US, "%.1f", Math.floor(value * 10f) / 10f);
+        return (digits.endsWith(".0") ? digits.substring(0, digits.length() - 2) : digits) + (millions ? "M" : "K");
     }
 
     /** The user's own number as it is shown: whole, or the country code, dots and two digits. */

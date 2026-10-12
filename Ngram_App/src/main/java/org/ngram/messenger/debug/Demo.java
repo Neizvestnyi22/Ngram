@@ -33,6 +33,17 @@ public final class Demo {
     private static final long ALICE = 5551001L, MARK = 5551002L, EVA = 5551003L, SASHA = 5551004L;
     private static final long TEAM = 5552001L;      // a basic group
     private static final long NEWS = 5553001L;      // a channel
+    private static final long SPACE = 5553002L, CODE = 5553003L, DESIGN = 5553004L;   // more channels, for the feed
+    private static final long[] CHANNELS = {NEWS, SPACE, CODE, DESIGN};
+
+    private static boolean isChannel(long dialog) {
+        for (long id : CHANNELS) {
+            if (dialog == -id) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private static int sentId = 900000;
     private static int pts = 1;
@@ -189,7 +200,26 @@ public final class Demo {
         news.photo = new TLRPC.TL_chatPhotoEmpty();
         news.date = now() - 86400 * 60;
         list.add(news);
+        list.add(channel(SPACE, "Космос сегодня", "space_today"));
+        list.add(channel(CODE, "Кофе и код", "coffee_and_code"));
+        list.add(channel(DESIGN, "Заметки дизайнера", null));
         return list;
+    }
+
+    private static TLRPC.Chat channel(long id, String title, String username) {
+        final TLRPC.TL_channel c = new TLRPC.TL_channel();
+        c.id = id;
+        c.access_hash = id * 17;
+        c.flags = 8192;
+        c.broadcast = true;
+        c.title = title;
+        if (username != null) {
+            c.username = username;
+            c.flags |= 64;
+        }
+        c.photo = new TLRPC.TL_chatPhotoEmpty();
+        c.date = now() - 86400 * 90;
+        return c;
     }
 
     /** One line of an invented conversation: who says it (0 = the demo user) and what. */
@@ -262,22 +292,43 @@ public final class Demo {
                 l(0, "В настройках появился раздел Ngram: плотность и размытие стекла, преломление, отклик кнопок."),
                 l(0, "Дальше — ассистент и плагины. Следите за обновлениями."),
             };
+        } else if (dialog == -SPACE) {
+            return new Line[]{
+                l(0, "Телескоп «Джеймс Уэбб» снял пару взаимодействующих галактик: на снимке видны мосты из газа и молодые звёздные скопления."),
+                l(0, "Сегодня ночью — максимум метеорного потока Ориониды. Лучшее время для наблюдений — после полуночи, вдали от городских огней."),
+                l(0, "Ракета вывела на орбиту ещё 23 спутника связи. Первая ступень села на плавучую платформу: это её 19-й полёт."),
+                l(0, "Марсоход прошёл отметку в 30 километров и передал панораму дельты древней реки."),
+            };
+        } else if (dialog == -CODE) {
+            return new Line[]{
+                l(0, "Совет дня: прежде чем оптимизировать, измерьте. Профилировщик почти всегда показывает не то место, на которое вы думали."),
+                l(0, "Вышел Kotlin с новым компилятором по умолчанию: сборка больших проектов стала заметно быстрее."),
+                l(0, "Почему «работает на моей машине» — не аргумент: короткая заметка о воспроизводимых сборках и фиксировании версий зависимостей."),
+            };
+        } else if (dialog == -DESIGN) {
+            return new Line[]{
+                l(0, "Жидкое стекло — не про прозрачность, а про глубину: фон должен читаться, но не спорить с содержимым."),
+                l(0, "Правило восьми: отступы, кратные восьми точкам, почти всегда выглядят аккуратнее произвольных."),
+                l(0, "Хороший интерфейс не объясняет себя подписями. Если кнопке нужна инструкция, это не кнопка, а загадка."),
+                l(0, "Подборка: пять бесплатных шрифтов с хорошей кириллицей для интерфейсов."),
+                l(0, "Тёмная тема — это не инверсия светлой. У неё свои контрасты и свои акценты."),
+            };
         }
         return new Line[0];
     }
 
-    private static final long[] ORDER = {ALICE, -TEAM, -NEWS, MARK, EVA, SASHA, ME};
+    private static final long[] ORDER = {ALICE, -TEAM, -NEWS, MARK, -SPACE, EVA, -DESIGN, -CODE, SASHA, ME};
 
     /** Minutes since the last message of each dialog, in the order above. */
-    private static final int[] AGE = {2, 9, 47, 130, 300, 1500, 4300};
+    private static final int[] AGE = {2, 9, 47, 130, 190, 300, 420, 900, 1500, 4300};
 
     /** Incoming messages not read yet, in the order above. */
-    private static final int[] UNREAD = {2, 3, 1, 0, 1, 0, 0};
+    private static final int[] UNREAD = {2, 3, 1, 0, 2, 1, 0, 1, 0, 0};
 
     private static int baseId(long dialog) {
         for (int i = 0; i < ORDER.length; i++) {
             if (ORDER[i] == dialog) {
-                return dialog == -NEWS ? 0 : (i + 1) * 1000;
+                return isChannel(dialog) ? 0 : (i + 1) * 1000;
             }
         }
         return 0;
@@ -297,9 +348,9 @@ public final class Demo {
             final TLRPC.TL_peerChat p = new TLRPC.TL_peerChat();
             p.chat_id = TEAM;
             return p;
-        } else if (dialog == -NEWS) {
+        } else if (isChannel(dialog)) {
             final TLRPC.TL_peerChannel p = new TLRPC.TL_peerChannel();
-            p.channel_id = NEWS;
+            p.channel_id = -dialog;
             return p;
         }
         final TLRPC.TL_peerUser p = new TLRPC.TL_peerUser();
@@ -323,10 +374,11 @@ public final class Demo {
             final TLRPC.TL_message m = new TLRPC.TL_message();
             m.id = base + i + 1;
             m.peer_id = peer(dialog);
-            m.date = last - (lines.length - 1 - i) * 95;
+            // Channels post hours apart, people answer within minutes.
+            m.date = last - (lines.length - 1 - i) * (isChannel(dialog) ? 2600 + idx * 700 : 95);
             m.message = line.text;
             m.dialog_id = dialog;
-            if (dialog == -NEWS) {
+            if (isChannel(dialog)) {
                 m.post = true;
                 m.views = 1200 + i * 310;
                 m.forwards = 4 + i;
@@ -367,7 +419,7 @@ public final class Demo {
             d.read_outbox_max_id = id == SASHA ? top.id - 1 : top.id;
             d.notify_settings = new TLRPC.TL_peerNotifySettings();
             d.last_message_date = top.date;
-            if (id == -NEWS) {
+            if (isChannel(id)) {
                 d.pts = 1;
                 d.flags |= 1;
             }

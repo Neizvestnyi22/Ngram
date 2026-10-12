@@ -47,7 +47,7 @@ public class DataFragment extends NgramFragment {
 
     @Override
     protected CharSequence getTitle() {
-        return tr("Данные Ngram", "Ngram Data");
+        return tr("Копия и диагностика", "Backup & Diagnostics");
     }
 
     @Override

@@ -412,7 +412,7 @@ public final class ChatTools {
             // The earliest date there is: Telegram loads the first messages of the chat.
             actions.add(() -> chat.jumpToDate(86400 * 2));
         }
-        names.add(tr("Статистика", "Statistics"));
+        names.add(tr("Разбор чата", "Chat Breakdown"));
         icons.add(R.drawable.msg_stats);
         actions.add(() -> ChatStats.show(chat));
         names.add(tr("Экспорт переписки", "Export Chat"));

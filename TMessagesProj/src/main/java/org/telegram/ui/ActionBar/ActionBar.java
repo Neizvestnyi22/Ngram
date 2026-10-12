@@ -207,6 +207,60 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         this.chatAvatarContainer = chatAvatarContainer;
     }
 
+    // Ngram: the number of unread chats next to the back arrow, as on iOS. The back capsule
+    // grows by the width of the number and everything to the right of it moves over.
+    private org.telegram.ui.Components.AnimatedTextView.AnimatedTextDrawable ngramBackText;
+    private int ngramBackCount;
+    /** Ngram: the title capsule fills the header as in Telegram instead of following its text. */
+    public boolean ngramWideCapsule;
+
+    public void setNgramBackCount(int count) {
+        count = Math.max(0, count);
+        if (!glassMode || count == ngramBackCount) {
+            return;
+        }
+        if (ngramBackText == null) {
+            ngramBackText = new org.telegram.ui.Components.AnimatedTextView.AnimatedTextDrawable(false, true, true);
+            ngramBackText.setAnimationProperties(.3f, 0, 320, CubicBezierInterpolator.EASE_OUT_QUINT);
+            ngramBackText.setTextSize(dp(15));
+            ngramBackText.setTypeface(AndroidUtilities.bold());
+            ngramBackText.setCallback(this);
+        }
+        ngramBackCount = count;
+        ngramBackText.setText(count == 0 ? "" : org.ngram.core.NgramConfig.shortCount(count), isAnimationsAllowed);
+        if (backButtonImageView != null) {
+            backButtonImageView.setPadding(dp(1), 0, ngramBackExtraTarget(), 0);
+        }
+        requestLayout();
+        invalidate();
+    }
+
+    /** Where the back capsule is going to end up: used for laying out, so nothing jumps twice. */
+    private int ngramBackExtraTarget() {
+        if (ngramBackText == null || ngramBackCount == 0) {
+            return 0;
+        }
+        return (int) Math.ceil(ngramBackText.getAnimateToWidth()) + dp(2);
+    }
+
+    /** Where the back capsule is right now, while the number rolls in or out. */
+    private int ngramBackExtra() {
+        if (ngramBackText == null) {
+            return 0;
+        }
+        final float width = ngramBackText.getCurrentWidth();
+        if (width <= 0f) {
+            return 0;
+        }
+        final float visible = 1f - Math.max(searchFactor, getActionModeFactor());
+        return Math.round((width + dp(2) * Math.min(1f, width / dp(8))) * visible);
+    }
+
+    @Override
+    protected boolean verifyDrawable(@NonNull Drawable who) {
+        return who == ngramBackText || super.verifyDrawable(who);
+    }
+
     public void setupGlass(BlurredBackgroundDrawableViewFactory factory, BlurredBackgroundColorProvider colorProvider) {
         setupGlass(factory, colorProvider, false);
     }
@@ -250,6 +304,31 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         if (backButtonImageView != null) {
             backButtonImageView.setTranslationX(dp(2));
         }
+        ngramPressBack();
+    }
+
+    private final float[] ngramSpread = new float[2];
+
+    /** Ngram: the glass of the back button gives under the finger together with the arrow. */
+    private void ngramPressBack() {
+        if (glassMode && backButtonImageView != null) {
+            org.ngram.core.NgramMotion.apply(backButtonImageView, this::invalidate);
+        }
+    }
+
+    /** Ngram: a title that does not fit gets smaller before it gets cut off. */
+    private void ngramFitTitle(SimpleTextView view, int available) {
+        final CharSequence text = view.getText();
+        if (text == null || text.length() == 0 || available <= dp(48)) {
+            return;
+        }
+        final android.text.TextPaint paint = view.getTextPaint();
+        int size = Math.round(paint.getTextSize() / AndroidUtilities.density);
+        final int room = available - dp(6);
+        while (size > 15 && paint.measureText(text, 0, text.length()) > room) {
+            size--;
+            view.setTextSize(size);
+        }
     }
 
     public INavigationLayout.BackButtonState getBackButtonState() {
@@ -266,8 +345,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         backButtonImageView = new ImageView(getContext());
         backButtonImageView.setScaleType(ImageView.ScaleType.CENTER);
         backButtonImageView.setBackgroundDrawable(Theme.createSelectorDrawable(itemsBackgroundColor));
-        backButtonImageView.setPadding(dp(1), 0, 0, 0);
+        backButtonImageView.setPadding(dp(1), 0, ngramBackExtraTarget(), 0);
         addView(backButtonImageView, LayoutHelper.createFrame(54, 54, Gravity.LEFT | Gravity.TOP));
+        ngramPressBack();
 
         backButtonImageView.setOnClickListener(v -> {
             if (!actionModeVisible && isSearchFieldVisible) {
@@ -1401,8 +1481,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         int textLeft;
         if (backButtonImageView != null && backButtonImageView.getVisibility() != GONE) {
-            backButtonImageView.measure(MeasureSpec.makeMeasureSpec(dp(54), MeasureSpec.EXACTLY), actionBarHeightSpec);
-            textLeft = dp(AndroidUtilities.isTablet() ? 80 : 72);
+            backButtonImageView.measure(MeasureSpec.makeMeasureSpec(dp(54) + ngramBackExtraTarget(), MeasureSpec.EXACTLY), actionBarHeightSpec);
+            textLeft = dp(AndroidUtilities.isTablet() ? 80 : 72) + ngramBackExtraTarget();
         } else {
             textLeft = dp(AndroidUtilities.isTablet() ? 26 : 18);
         }
@@ -1463,6 +1543,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                     }
                 }
 
+                if (org.ngram.core.NgramConfig.fitTitle && titleTextView[i] != null && titleTextView[i].getVisibility() != GONE && !titleAnimationRunning) {
+                    ngramFitTitle(titleTextView[i], availableWidth);
+                }
                 if (titleTextView[i] != null && titleTextView[i].getVisibility() != GONE) {
                     titleTextView[i].measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24) + titleTextView[i].getPaddingTop() + titleTextView[i].getPaddingBottom(), MeasureSpec.AT_MOST));
                     if (centerScale) {
@@ -1520,7 +1603,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         int textLeft;
         if (backButtonImageView != null && backButtonImageView.getVisibility() != GONE) {
             backButtonImageView.layout(0, additionalTop, backButtonImageView.getMeasuredWidth(), additionalTop + backButtonImageView.getMeasuredHeight());
-            textLeft = glassMode ? dp(76) : dp(AndroidUtilities.isTablet() ? 80 : 72);
+            textLeft = (glassMode ? dp(76) : dp(AndroidUtilities.isTablet() ? 80 : 72)) + ngramBackExtraTarget();
         } else {
             textLeft = glassMode ? dp(24) : dp(AndroidUtilities.isTablet() ? 26 : 18);
         }
@@ -2231,17 +2314,18 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         final int t = getHeight() - (getCurrentActionBarHeight() + s) / 2 - p;
         final int b = t + s + p * 2;
+        final int ngramBack = hasBackButton ? ngramBackExtra() : 0; // Ngram: room for the unread number
 
         if (glassDrawable != null && !glassOnlyBack) {
             final int menuWidthWithPadding = menuWidth + ((hasForcedMenuWidth || hasForcedMenuMinWidth) ? (menuWidth > 0 ? p : 0) : (int) (p * animatorHasMenuItems.getFloatValue()));
             final int rightOffset = lerp(menuWidthWithPadding, Math.max(menuWidthWithPadding, p + s), chatAvatarContainer == null ? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
 
-            final int leftDefault = lerp(hasBackButton ? s + p : 0, s + p, chatAvatarContainer == null? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
+            final int leftDefault = ngramBack + lerp(hasBackButton ? s + p : 0, s + p, chatAvatarContainer == null? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
             final int rightDefault = getWidth() - rightOffset;
             final int widthDefault = rightDefault - leftDefault;
             final int left, right;
             if (chatAvatarContainer != null) {
-                final int width = lerp(Math.min(widthDefault, (int) animatorAvatarContainerWidth.getFactor() + p * 2), widthDefault, Math.max(searchFactor, actionModeFactor));
+                final int width = lerp(ngramWideCapsule ? widthDefault : Math.min(widthDefault, (int) animatorAvatarContainerWidth.getFactor() + p * 2), widthDefault, Math.max(searchFactor, actionModeFactor));
                 left = (rightDefault + leftDefault - width) / 2;
                 right = left + width;
 
@@ -2256,15 +2340,24 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 right = rightDefault;
             }
 
-            glassDrawable.setBounds(left, t, right, b);
+            org.ngram.core.NgramMotion.spread(chatAvatarContainer, right - left - p * 2, s, ngramSpread); // Ngram: the glass follows the press
+            glassDrawable.setBounds(left - Math.round(ngramSpread[0]), t - Math.round(ngramSpread[1]), right + Math.round(ngramSpread[0]), b + Math.round(ngramSpread[1]));
             glassDrawable.draw(canvas);
         }
         if (glassDrawableBack != null && hasBackButton) {
-            glassDrawableBack.setBounds(0, t, s + p * 2, b);
+            org.ngram.core.NgramMotion.spread(backButtonImageView, s + ngramBack, s, ngramSpread); // Ngram: the glass follows the press
+            glassDrawableBack.setBounds(-Math.round(ngramSpread[0]), t - Math.round(ngramSpread[1]), s + p * 2 + ngramBack + Math.round(ngramSpread[0]), b + Math.round(ngramSpread[1]));
             glassDrawableBack.draw(canvas);
+            if (ngramBack > 0) {
+                ngramBackText.setTextColor(itemsColor);
+                ngramBackText.setAlpha((int) (255 * backButtonImageView.getAlpha() * Math.min(1f, ngramBack / (float) dp(12))));
+                ngramBackText.setBounds(dp(41), t, dp(41) + ngramBack, b);
+                ngramBackText.draw(canvas);
+            }
         }
         if (glassDrawableMenu != null && menuWidth > 0 && !glassOnlyBack && !doNotDrawGlassMenu) {
-            glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2, t, getWidth(), b);
+            org.ngram.core.NgramMotion.spread(menu == null ? null : menu.ngramPressedItem(), Math.max(s, menuWidth), s, ngramSpread); // Ngram: the glass follows the press
+            glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2 - Math.round(ngramSpread[0]), t - Math.round(ngramSpread[1]), getWidth() + Math.round(ngramSpread[0]), b + Math.round(ngramSpread[1]));
             glassDrawableMenu.setAlpha(hasForcedMenuWidth ? 255 : (int) (255 * animatorHasMenuItems.getFloatValue()));
             glassDrawableMenu.draw(canvas);
         }

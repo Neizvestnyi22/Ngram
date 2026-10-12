@@ -44,8 +44,11 @@ public final class Opt {
         }
     }
 
-    /** What each entry of the message menu is by default: only "repeat" starts switched off. */
+    /**
+     * What each entry of the message menu is by default. "Repeat" starts switched off, and so
+     * does "To Saved Messages": Telegram's own Forward already leads there in two taps.
+     */
     public static boolean menu(String key) {
-        return on(key, !MENU_REPEAT.equals(key));
+        return on(key, !MENU_REPEAT.equals(key) && !MENU_SAVE.equals(key));
     }
 }

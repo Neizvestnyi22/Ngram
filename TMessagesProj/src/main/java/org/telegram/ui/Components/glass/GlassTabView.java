@@ -231,7 +231,15 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         usePremiumCounter = usePremiumBadge;
     }
 
+    /** Ngram: a title of its own for a tab that Telegram has no text for. */
+    public void setNgramTitle(CharSequence title) {
+        textView.setText(title);
+    }
+
     public void setSelected(boolean selected, boolean animated) {
+        if (selected && animated && !isSelectedAnimator.getValue()) { // Ngram: the chosen tab swells and settles
+            org.ngram.core.NgramMotion.pop(backupImageView != null && imageView.getVisibility() != VISIBLE ? backupImageView : imageView, 0.22f);
+        }
         isSelectedAnimator.setValue(selected, animated);
         checkPlayAnimation(animated);
 

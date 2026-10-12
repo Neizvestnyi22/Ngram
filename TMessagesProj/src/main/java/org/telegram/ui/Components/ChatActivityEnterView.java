@@ -2834,6 +2834,31 @@ public class ChatActivityEnterView extends FrameLayout implements
                     if (getAlpha() < 0.5f) return false;
                     return super.dispatchTouchEvent(event);
                 }
+
+                // Ngram: on its own to the left of the field the button keeps its place, and
+                // the glass around it follows how much of it is showing.
+                @Override
+                public void setAlpha(float alpha) {
+                    super.setAlpha(alpha);
+                    ngramCheckSides();
+                }
+
+                @Override
+                public void setVisibility(int visibility) {
+                    super.setVisibility(visibility);
+                    ngramCheckSides();
+                }
+
+                @Override
+                public void setTranslationX(float translationX) {
+                    super.setTranslationX(ngramAttachLeft ? 0 : translationX);
+                }
+
+                @Override
+                public void setScaleX(float scaleX) {
+                    super.setScaleX(scaleX);
+                    ngramCheckSides();
+                }
             };
             attachButton.setScaleType(ImageView.ScaleType.CENTER);
             attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
@@ -8138,7 +8163,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             } else {
                 color = getThemedColor(Theme.key_chat_messagePanelSend);
             }
-            boolean captionNearAttach = messageEditText != null && (!TextUtils.isEmpty(messageEditText.getCaption()) || messageEditText.isNearRightCaption(dp(DEFAULT_HEIGHT))) || LocaleController.isRTL;
+            boolean captionNearAttach = !ngramAttachLeft && (messageEditText != null && (!TextUtils.isEmpty(messageEditText.getCaption()) || messageEditText.isNearRightCaption(dp(DEFAULT_HEIGHT))) || LocaleController.isRTL); // Ngram: nothing to run into on the left
 
             if (color != sendButtonBackgroundColor) {
                 sendButtonBackgroundColor = color;
@@ -8175,7 +8200,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                                 animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_X, captionNearAttach ? 0.5f : 1.0f));
                                 animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_Y, captionNearAttach ? 0.5f : 1.0f));
                             }
-                        } else if (attachButton != null) {
+                        } else if (attachButton != null && !ngramAttachLeft) { // Ngram: stays while typing, as on iOS
                             animators.add(ObjectAnimator.ofFloat(attachButton, View.ALPHA, attachButtonAlpha = 0.0f));
                             animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_X, 0.5f));
                             animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_Y, 0.5f));
@@ -8342,7 +8367,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                                 attachButton.setScaleX(captionNearAttach ? 0.5f : 1.0f);
                                 attachButton.setScaleY(captionNearAttach ? 0.5f : 1.0f);
                             }
-                        } else if (attachButton != null) {
+                        } else if (attachButton != null && !ngramAttachLeft) { // Ngram: stays while typing, as on iOS
                             attachButton.setAlpha(attachButtonAlpha = 0.0f);
                             attachButton.setScaleX(0.5f);
                             attachButton.setScaleY(0.5f);
@@ -8802,6 +8827,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                 layoutParams.rightMargin = dp(2);
             }
         }
+        if (ngramAttachLeft && (attachVisible == 1 || attachVisible == 2)) { // Ngram: the attach button is not in the field
+            layoutParams.rightMargin = Math.max(dp(2), layoutParams.rightMargin - dp(DEFAULT_HEIGHT));
+        }
         layoutParams.rightMargin = Math.max(layoutParams.rightMargin, Math.max(0, sendButton.width() - dp(DEFAULT_HEIGHT)));
         if (doneButton != null && doneButton.getVisibility() == VISIBLE) {
             layoutParams.rightMargin = Math.max(layoutParams.rightMargin, Math.max(0, doneButton.width() - dp(DEFAULT_HEIGHT)));
@@ -8814,6 +8842,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             layoutParams2.rightMargin = editingMessageObject == null ? Math.max(0, sendButton.width() - dp(DEFAULT_HEIGHT)) : 0;
             recordedAudioPanel.setLayoutParams(layoutParams2);
         }
+        ngramCheckSides();
     }
 
     public void startMessageTransition() {
@@ -12607,6 +12636,65 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     private boolean ngramSendConfirmed; // Ngram: set while a send the user has just agreed to goes through
+
+    // Ngram: the attach button as its own glass circle to the left of the field and the
+    // microphone clear of the field on the right, as on iOS. The screen that hosts this view
+    // draws the glass; it is told how much of the left circle shows and how much room the
+    // button on the right needs.
+    public interface NgramSides {
+        /** @param attachScaleX, attachScaleY the attach button's own scale: it gives under the finger */
+        void onSides(float attach, float rightInset, float attachScaleX, float attachScaleY);
+    }
+
+    public boolean ngramAttachIsLeft() {
+        return ngramAttachLeft;
+    }
+
+    private boolean ngramAttachLeft;
+    private float ngramAttachFactor = -1f;
+    private NgramSides ngramSides;
+
+    public void setNgramSides(NgramSides sides) {
+        if (sides == null || ngramAttachLeft || attachButton == null || messageEditTextContainer == null || isStories) {
+            return;
+        }
+        ngramSides = sides;
+        ngramAttachLeft = true;
+        AndroidUtilities.removeFromParent(attachButton);
+        textFieldContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT, -2, 0, 0, 0));
+        attachButton.setTranslationX(0);
+        if (attachLayout != null) {
+            ((MarginLayoutParams) attachLayout.getLayoutParams()).rightMargin = 0;
+        }
+        updateFieldRight(lastAttachVisible);
+        org.ngram.core.NgramMotion.apply(attachButton, this::ngramCheckSides);
+        ngramCheckSides();
+    }
+
+    private void ngramCheckSides() {
+        if (!ngramAttachLeft || ngramSides == null) {
+            return;
+        }
+        final boolean covered = botWebViewButton != null && botWebViewButton.getVisibility() == VISIBLE;
+        final float attach = covered || attachButton.getVisibility() != VISIBLE ? 0f : Math.max(0f, Math.min(1f, attachButton.getAlpha()));
+        float right = 0f;
+        if (!covered) {
+            right = dp(49);
+            if (sendButton != null && sendButton.getVisibility() == VISIBLE) {
+                right += Math.max(0, sendButton.width() - dp(DEFAULT_HEIGHT)) * sendButton.getAlpha();
+            }
+        }
+        if (attach != ngramAttachFactor) {
+            ngramAttachFactor = attach;
+            final MarginLayoutParams lp = (MarginLayoutParams) messageEditTextContainer.getLayoutParams();
+            final int margin = Math.round(dp(50) * attach);
+            if (lp.leftMargin != margin) {
+                lp.leftMargin = margin;
+                messageEditTextContainer.requestLayout();
+            }
+        }
+        ngramSides.onSides(attach, right, attachButton.getScaleX(), attachButton.getScaleY());
+    }
 
     @Override
     public void onStickerSelected(TLRPC.Document sticker, String query, Object parent, MessageObject.SendAnimationData sendAnimationData, boolean clearsInputField, boolean notify, int scheduleDate, int scheduleRepeatPeriod) {

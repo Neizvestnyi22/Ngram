@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ngram: part of one of its own app icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M8,39h20v5.2h-20z" android:fillColor="#FFFF3B30" />
+    <path android:pathData="M28,41h20v5.2h-20z" android:fillColor="#FFFF3B30" />
+    <path android:pathData="M8,44h20v5.2h-20z" android:fillColor="#FFFF9500" />
+    <path android:pathData="M28,46h20v5.2h-20z" android:fillColor="#FFFF9500" />
+    <path android:pathData="M8,49h20v5.2h-20z" android:fillColor="#FFFFCC00" />
+    <path android:pathData="M28,51h20v5.2h-20z" android:fillColor="#FFFFCC00" />
+    <path android:pathData="M8,54h20v5.2h-20z" android:fillColor="#FF34C759" />
+    <path android:pathData="M28,56h20v5.2h-20z" android:fillColor="#FF34C759" />
+    <path android:pathData="M8,59h20v5.2h-20z" android:fillColor="#FF0A84FF" />
+    <path android:pathData="M28,61h20v5.2h-20z" android:fillColor="#FF0A84FF" />
+    <path android:pathData="M8,64h20v5.2h-20z" android:fillColor="#FFAF52DE" />
+    <path android:pathData="M28,66h20v5.2h-20z" android:fillColor="#FFAF52DE" />
+    <path android:pathData="M48,70 L48,39 L76,69 L76,38" android:strokeColor="#FFFFFFFF" android:strokeWidth="9" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

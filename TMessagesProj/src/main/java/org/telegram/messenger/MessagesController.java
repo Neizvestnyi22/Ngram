@@ -5306,6 +5306,22 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public static class PeerColor {
+        /**
+         * Ngram: a profile colour made on the device, for a peer that has not chosen one.
+         * The two background colours make the header's gradient, the other two the ring
+         * around the avatar; the dark theme gets the same colours a little deeper.
+         */
+        public static PeerColor ngram(int id, int bg1, int bg2, int story1, int story2) {
+            final PeerColor color = new PeerColor();
+            color.id = id;
+            final int[] light = {bg1, bg2, bg1, bg2, story1, story2};
+            for (int i = 0; i < 6; i++) {
+                color.colors[i] = light[i] | 0xFF000000;
+                color.darkColors[i] = ColorUtils.blendARGB(light[i] | 0xFF000000, 0xFF000000, 0.28f);
+            }
+            return color;
+        }
+
         public int patternColor = 0;
         public int textColor = 0;
         public boolean isDefaultName;

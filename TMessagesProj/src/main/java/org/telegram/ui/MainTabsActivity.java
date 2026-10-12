@@ -90,19 +90,27 @@ import me.vkryl.android.animator.FactorAnimator;
 public class MainTabsActivity extends ViewPagerActivity implements NotificationCenter.NotificationCenterDelegate, FactorAnimator.Target {
 
     public static final int TABS_COUNT = 4;
+    // Ngram: with the Feed tab on, it stands right after Chats and the other pages move over by one.
+    private final boolean ngramFeed = org.ngram.core.NgramHooks.feedTab();
     private static final int POSITION_CHATS = 0;
-    private static final int POSITION_CONTACTS = 1;
-    private static final int POSITION_CALLS_OR_SETTINGS = 2;
-    private static final int POSITION_PROFILE = 3;
+    private final int POSITION_FEED = ngramFeed ? 1 : -1;
+    private final int POSITION_CONTACTS = ngramFeed ? 2 : 1;
+    private final int POSITION_CALLS_OR_SETTINGS = ngramFeed ? 3 : 2;
+    private final int POSITION_PROFILE = ngramFeed ? 4 : 3;
 
     private static final int INDEX_CHATS = 0;
     private static final int INDEX_CONTACTS = 1;
     private static final int INDEX_SETTINGS = 2;
     private static final int INDEX_CALLS = 3;
     private static final int INDEX_PROFILE = 4;
+    private static final int INDEX_FEED = 5; // Ngram
 
-    private static int indexToPosition(int index) {
-        return index > 2 ? index - 1 : index;
+    private int indexToPosition(int index) {
+        if (index == INDEX_FEED) {
+            return POSITION_FEED;
+        }
+        final int position = index > 2 ? index - 1 : index;
+        return ngramFeed && position > 0 ? position + 1 : position;
     }
 
     private static final int ANIMATOR_ID_TABS_VISIBLE = 0;
@@ -308,9 +316,13 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsView = new MainTabsLayout(context, resourceProvider);
         tabsView.setClipChildren(false);
         tabsView.setPadding(dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4));
-        tabsView.setMaxWidth(dp(328 + DialogsActivity.MAIN_TABS_MARGIN * 2));
+        tabsView.setMaxWidth(dp((ngramFeed ? 372 : 328) + DialogsActivity.MAIN_TABS_MARGIN * 2));
 
-        tabs = new GlassTabView[5];
+        tabs = new GlassTabView[6];
+        if (ngramFeed) { // Ngram: the Feed tab
+            tabs[INDEX_FEED] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.ARTICLE, R.string.MainTabsChats);
+            tabs[INDEX_FEED].setNgramTitle(org.ngram.core.NgramHooks.feedTitle());
+        }
         tabs[INDEX_CHATS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CHATS, R.string.MainTabsChats);
         tabs[INDEX_CONTACTS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CONTACTS, R.string.MainTabsContacts);
         tabs[INDEX_SETTINGS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.SETTINGS, R.string.Settings);
@@ -326,7 +338,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsView.addTabToIgnoreClick(tabs[INDEX_PROFILE]);
         tabsView.addTabToIgnoreClick(tabs[INDEX_CALLS]);
 
-        for (int index = 0; index < tabs.length; index++) {
+        // Ngram: in the order they stand on the bar, the Feed tab second.
+        final int[] ngramOrder = ngramFeed
+            ? new int[]{INDEX_CHATS, INDEX_FEED, INDEX_CONTACTS, INDEX_SETTINGS, INDEX_CALLS, INDEX_PROFILE}
+            : new int[]{INDEX_CHATS, INDEX_CONTACTS, INDEX_SETTINGS, INDEX_CALLS, INDEX_PROFILE};
+        for (final int index : ngramOrder) {
             final GlassTabView view = tabs[index];
 
             final int position = indexToPosition(index);
@@ -767,7 +783,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     protected int getFragmentsCount() {
-        return TABS_COUNT;
+        return ngramFeed ? TABS_COUNT + 1 : TABS_COUNT;
     }
 
     @Override
@@ -806,6 +822,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     protected BaseFragment createBaseFragmentAt(int position) {
+        if (ngramFeed && position == POSITION_FEED) { // Ngram: the Feed tab
+            Bundle args = new Bundle();
+            args.putBoolean("hasMainTabs", true);
+            final BaseFragment feed = org.ngram.core.NgramHooks.createFeed(args);
+            return feed != null ? feed : new SettingsActivity(args);
+        }
         if (position == POSITION_CONTACTS) {
             Bundle args = new Bundle();
             args.putBoolean("needPhonebook", true);
@@ -850,12 +872,18 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     public void selectTab(int position, boolean animated) {
         for (int a = 0; a < tabs.length; a++) {
             GlassTabView tab = tabs[a];
+            if (tab == null) { // Ngram: no Feed tab
+                continue;
+            }
             tab.setSelected(indexToPosition(a) == position, animated);
         }
     }
 
     public void setGestureSelectedOverride(float animatedPosition, boolean allow) {
         for (int index = 0; index < tabs.length; index++) {
+            if (tabs[index] == null) { // Ngram: no Feed tab
+                continue;
+            }
             final int position = indexToPosition(index);
             final float visibility = Math.max(0, 1f - Math.abs(position - animatedPosition));
             tabs[index].setGestureSelectedOverride(visibility, allow);
@@ -1225,7 +1253,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         }
         if (tabs != null) {
             for (GlassTabView tabView : tabs) {
-                tabView.updateColorsLottie();
+                if (tabView != null) { // Ngram: no Feed tab
+                    tabView.updateColorsLottie();
+                }
             }
         }
     }

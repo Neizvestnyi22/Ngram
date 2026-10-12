@@ -731,6 +731,19 @@ public final class Plugins {
         }
     }
 
+    /** The app came to the front (true) or went to the background. */
+    public static void onApp(boolean resumed) {
+    }
+
+    /** A chat screen opened or closed for good. */
+    public static void onChat(org.telegram.ui.ChatActivity chat, boolean opened) {
+    }
+
+    /** A link is about to be opened: true when a plugin took it over. */
+    public static boolean onOpenUrl(Context context, android.net.Uri uri) {
+        return false;
+    }
+
     /** Runs a send that a plugin asked for, with the plugins' own send hooks out of the way. */
     static void sendForPlugin(Runnable send) {
         sendingForPlugin.set(true);

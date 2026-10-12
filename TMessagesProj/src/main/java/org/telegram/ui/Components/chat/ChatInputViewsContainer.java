@@ -82,6 +82,36 @@ public class ChatInputViewsContainer extends FrameLayout {
         blurredBackgroundDrawable.setRadius(dp(INPUT_BUBBLE_RADIUS));
     }
 
+    // Ngram: the attach button's own glass circle to the left of the field, and the gap that
+    // leaves the button on the right standing clear of it, as on iOS.
+    private BlurredBackgroundDrawable ngramSideDrawable;
+    private float ngramAttach, ngramRightInset, ngramSidesShown = 1f, ngramAttachScaleX = 1f, ngramAttachScaleY = 1f;
+
+    public void setNgramSideDrawable(BlurredBackgroundDrawable drawable) {
+        ngramSideDrawable = drawable;
+        ngramSideDrawable.setPadding(dp(7));
+        ngramSideDrawable.setRadius(dp(INPUT_BUBBLE_RADIUS));
+    }
+
+    /** @param attach how much of the attach button shows, 0..1; rightInset in pixels */
+    public void setNgramSides(float attach, float rightInset, float attachScaleX, float attachScaleY) {
+        if (ngramAttach != attach || ngramRightInset != rightInset || ngramAttachScaleX != attachScaleX || ngramAttachScaleY != attachScaleY) {
+            ngramAttach = attach;
+            ngramRightInset = rightInset;
+            ngramAttachScaleX = attachScaleX;
+            ngramAttachScaleY = attachScaleY;
+            invalidate();
+        }
+    }
+
+    /** How much of the message field itself is on screen (it gives way to other bottom bars). */
+    public void setNgramSidesShown(float shown) {
+        if (ngramSidesShown != shown) {
+            ngramSidesShown = shown;
+            invalidate();
+        }
+    }
+
     public void setUnderKeyboardBackgroundDrawable(BlurredBackgroundDrawable drawable) {
         underKeyboardBackgroundDrawable = drawable;
         underKeyboardBackgroundDrawable.enableInAppKeyboardOptimization();
@@ -91,6 +121,9 @@ public class ChatInputViewsContainer extends FrameLayout {
     }
 
     public void updateColors() {
+        if (ngramSideDrawable != null) {
+            ngramSideDrawable.updateColors();
+        }
         blurredBackgroundDrawable.updateColors();
         underKeyboardBackgroundDrawable.updateColors();
         invalidate();
@@ -259,10 +292,11 @@ public class ChatInputViewsContainer extends FrameLayout {
 
         final int blurTop = getMeasuredHeight() - currentBlurredHeight;
 
+        final float ngramLeft = ngramSideDrawable == null ? 0f : ngramAttach * ngramSidesShown;
         tmpRect.set(
-            Math.round(inputBubbleOffsetLeft),
+            Math.round(inputBubbleOffsetLeft + dp(50) * ngramLeft),
             0,
-            getMeasuredWidth() - Math.round(inputBubbleOffsetRight),
+            getMeasuredWidth() - Math.round(inputBubbleOffsetRight + (ngramSideDrawable == null ? 0f : ngramRightInset * ngramSidesShown)),
             inputBubbleHeightRound
         );
         tmpRect.inset(0, -dp(7));
@@ -271,6 +305,14 @@ public class ChatInputViewsContainer extends FrameLayout {
         blurredBackgroundDrawable.setBounds(tmpRect);
         if (drawInputBackground)
             blurredBackgroundDrawable.draw(canvas);
+
+        if (ngramLeft > 0f && drawInputBackground) {
+            final int left = Math.round(inputBubbleOffsetLeft);
+            final int dx = Math.round((ngramAttachScaleX - 1f) * dp(22)), dy = Math.round((ngramAttachScaleY - 1f) * dp(22));
+            ngramSideDrawable.setBounds(left - dx, tmpRect.bottom - dp(44 + 14) - dy, left + dp(44 + 14) + dx, tmpRect.bottom + dy);
+            ngramSideDrawable.setAlpha((int) (blurredBackgroundDrawable.getAlpha() * ngramLeft));
+            ngramSideDrawable.draw(canvas);
+        }
 
         if (needDrawInAppKeyboard) {
             underKeyboardBackgroundDrawable.draw(canvas);

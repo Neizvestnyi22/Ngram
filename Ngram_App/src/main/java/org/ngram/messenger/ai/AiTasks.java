@@ -177,6 +177,22 @@ public final class AiTasks {
             + "mention who said what where it matters.\n\nChat:\n" + transcript;
     }
 
+    public static String decisions(String transcript) {
+        return "Below is a fragment of a chat. List in " + langName() + " only what was agreed or decided: who does what and by when, "
+            + "as short bullet points. If nothing was agreed, say so in one line.\n\nChat:\n" + transcript;
+    }
+
+    public static String askedOfMe(String transcript) {
+        return "Below is a fragment of a chat. The reader is the participant labelled \"" + tr("Я", "Me") + "\". List in " + langName()
+            + " what the others ask or expect of the reader: requests, questions waiting for the reader's answer, things the reader promised. "
+            + "Short bullet points, the most urgent first. If there is nothing, say so in one line.\n\nChat:\n" + transcript;
+    }
+
+    public static String openQuestions(String transcript) {
+        return "Below is a fragment of a chat. List in " + langName() + " the questions that were asked and got no answer, each with who asked it. "
+            + "If every question was answered, say so in one line.\n\nChat:\n" + transcript;
+    }
+
     public static String askChat(String transcript, String question) {
         return "Below is a fragment of a chat, then a question about it. Answer in " + langName()
             + ", based only on the chat.\n\nChat:\n" + transcript + "\n\nQuestion: " + question;

@@ -31,6 +31,14 @@ public final class NgramMotion {
      * @return false when the user chose the plain one: the caller then installs Telegram's own
      */
     public static boolean apply(View view) {
+        return apply(view, null);
+    }
+
+    /**
+     * The same, for a button whose glass is drawn by something else (a header, the message
+     * field): {@code onPose} runs on every step so that the glass can follow the button.
+     */
+    public static boolean apply(View view, Runnable onPose) {
         if (view == null) {
             return true;
         }
@@ -49,8 +57,11 @@ public final class NgramMotion {
         press.addUpdateListener(a -> {
             state[0] = state[1] + (1f - state[1]) * a.getAnimatedFraction();
             pose(view, state[0], jelly);
+            if (onPose != null) {
+                onPose.run();
+            }
         });
-        press.addListener(new Steps(state, view, jelly, 1f));
+        press.addListener(new Steps(state, view, jelly, 1f, onPose));
 
         final ValueAnimator release = ValueAnimator.ofFloat(0f, 1f);
         release.setDuration(jelly ? 640 : 430);
@@ -59,14 +70,42 @@ public final class NgramMotion {
             final float t = a.getAnimatedFraction();
             state[0] = state[1] * (jelly ? wobble(t) : settle(t));
             pose(view, state[0], jelly);
+            if (onPose != null) {
+                onPose.run();
+            }
         });
-        release.addListener(new Steps(state, view, jelly, 0f));
+        release.addListener(new Steps(state, view, jelly, 0f, onPose));
 
         final StateListAnimator animator = new StateListAnimator();
         animator.addState(new int[]{android.R.attr.state_pressed}, press);
         animator.addState(new int[0], release);
         view.setStateListAnimator(animator);
         return true;
+    }
+
+    /**
+     * A view that has just become the chosen one (a tab, a tile) swells and swings back to its
+     * size. Does nothing when the user asked for plain motion.
+     */
+    public static void pop(View view, float amount) {
+        if (view == null || NgramConfig.pressMotion == NgramConfig.MOTION_PLAIN) {
+            return;
+        }
+        final boolean jelly = NgramConfig.pressMotion == NgramConfig.MOTION_JELLY;
+        view.animate().cancel();
+        view.setScaleX(1f + amount);
+        view.setScaleY(1f + amount);
+        view.animate().scaleX(1f).scaleY(1f).setDuration(jelly ? 620 : 420)
+            .setInterpolator(t -> 1f - (jelly ? wobble(t) : settle(t))).start();
+    }
+
+    /**
+     * How far a glass shape drawn for {@code view} has to grow on each side to follow the
+     * view's press animation: [0] across, [1] down, in pixels.
+     */
+    public static void spread(View view, float width, float height, float[] out) {
+        out[0] = view == null ? 0f : (view.getScaleX() - 1f) * width / 2f;
+        out[1] = view == null ? 0f : (view.getScaleY() - 1f) * height / 2f;
     }
 
     /** For value animators that run from "pressed" to "rest": overshoots rest and swings back. */
@@ -102,13 +141,15 @@ public final class NgramMotion {
         private final View view;
         private final boolean jelly;
         private final float end;
+        private final Runnable onPose;
         private boolean cancelled;
 
-        Steps(float[] state, View view, boolean jelly, float end) {
+        Steps(float[] state, View view, boolean jelly, float end, Runnable onPose) {
             this.state = state;
             this.view = view;
             this.jelly = jelly;
             this.end = end;
+            this.onPose = onPose;
         }
 
         @Override
@@ -127,6 +168,9 @@ public final class NgramMotion {
             if (!cancelled) {
                 state[0] = end;
                 pose(view, end, jelly);
+                if (onPose != null) {
+                    onPose.run();
+                }
             }
         }
     }

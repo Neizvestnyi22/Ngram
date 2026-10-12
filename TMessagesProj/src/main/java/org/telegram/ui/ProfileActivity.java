@@ -11315,6 +11315,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 final MessagesController.PeerColors peerColors = MessagesController.getInstance(currentAccount).profilePeerColors;
                 peerColor = peerColors == null ? null : peerColors.getColor(colorId);
             }
+            if (peerColor == null && NgramConfig.colorProfiles) { // Ngram: a coloured header for everyone
+                peerColor = NgramConfig.profileColor(user.id);
+            }
             if (wasPeerColor != peerColor) {
                 updatedPeerColor();
             }
@@ -11629,6 +11632,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 final int colorId = ChatObject.getProfileColorId(chat);
                 MessagesController.PeerColors peerColors = MessagesController.getInstance(currentAccount).profilePeerColors;
                 peerColor = peerColors == null ? null : peerColors.getColor(colorId);
+            }
+            if (peerColor == null && NgramConfig.colorProfiles) { // Ngram: a coloured header for everyone
+                peerColor = NgramConfig.profileColor(chat.id);
             }
             if (wasPeerColor != peerColor) {
                 updatedPeerColor();

@@ -187,7 +187,7 @@ public final class ChatStats {
                 rows.add(tr("От пяти букв", "Five Letters and Longer"), TextUtils.join(", ", frequent));
             }
         }
-        InfoSheet.show(chat, tr("Статистика чата", "Chat Statistics"), rows);
+        InfoSheet.show(chat, tr("Разбор чата", "Chat Breakdown"), rows);
     }
 
     private static String name(MessagesController controller, long id, long selfId) {

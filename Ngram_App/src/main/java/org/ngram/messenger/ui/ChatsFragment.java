@@ -47,7 +47,7 @@ public class ChatsFragment extends NgramFragment {
 
     @Override
     protected CharSequence getTitle() {
-        return tr("Чаты", "Chats");
+        return tr("Переписка", "Messaging");
     }
 
     @Override
@@ -103,7 +103,7 @@ public class ChatsFragment extends NgramFragment {
             "Phrases put into the message field in two taps: the chat's menu (three dots) → Ngram → Templates.")));
 
         items.add(UItem.asHeader(tr("На этом устройстве", "On This Device")));
-        items.add(UItem.asCheck(HIDE_PHONE, tr("Скрывать мой номер", "Hide My Number")).setChecked(NgramConfig.hidePhone));
+        items.add(UItem.asCheck(HIDE_PHONE, tr("Прятать мой номер на экране", "Mask My Number on Screen")).setChecked(NgramConfig.hidePhone));
         items.add(UItem.asCheck(SECURE, tr("Запретить снимки экрана", "No Screenshots")).setChecked(NgramConfig.secureScreen));
         items.add(UItem.asShadow(tr(
             "«Скрывать мой номер» заменяет ваш номер точками в настройках и в вашем профиле — на случай, если вы показываете экран. Другим людям ваш номер виден так, как задано в «Конфиденциальности» Telegram. «Запретить снимки экрана» также прячет приложение в списке недавних.",

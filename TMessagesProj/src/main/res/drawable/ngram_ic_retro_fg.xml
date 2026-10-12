@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ngram: part of one of its own app icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M28,29h52v50h-52z" android:fillColor="#FF000000" />
+    <path android:pathData="M28,29h51v49h-51z" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M29,30h50v48h-50z" android:fillColor="#FF808080" />
+    <path android:pathData="M29,30h49v47h-49z" android:fillColor="#FFC0C0C0" />
+    <path android:pathData="M31,32h45v9h-45z" android:fillColor="#FF000080" />
+    <path android:pathData="M69,33.5h5.5v6h-5.5z" android:fillColor="#FFC0C0C0" />
+    <path android:pathData="M70.3,35 L73.2,38 M73.2,35 L70.3,38" android:strokeColor="#FF000000" android:strokeWidth="1" android:strokeLineCap="butt" android:strokeLineJoin="miter" />
+    <path android:pathData="M44,72 L44,48 L62,72 L62,48" android:strokeColor="#FF000000" android:strokeWidth="5" android:strokeLineCap="square" android:strokeLineJoin="miter" />
+</vector>

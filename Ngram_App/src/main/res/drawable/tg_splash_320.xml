@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ngram: its own mark on the splash screen, in the place of Telegram's paper plane. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp"
+    android:height="320dp"
+    android:viewportWidth="320"
+    android:viewportHeight="320">
+    <path android:pathData="M160,160m-50,0a50,50 0 1,0 100,0a50,50 0 1,0 -100,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="110" android:startY="110" android:endX="210" android:endY="210">
+                <item android:offset="0" android:color="#FF39C0FF" />
+                <item android:offset="0.55" android:color="#FF2E86FF" />
+                <item android:offset="1" android:color="#FF7A5CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M140.5,182 L140.5,139.5 L179.5,180.5 L179.5,138"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="12.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

@@ -125,50 +125,63 @@ public final class AiInChat {
             return;
         }
         final String text = textOf(message).trim();
-        final ArrayList<CharSequence> names = new ArrayList<>();
-        final ArrayList<Runnable> actions = new ArrayList<>();
+        final ArrayList<AiPanel.Action> actions = new ArrayList<>();
 
+        if (!text.isEmpty()) {
+            if (text.length() > 280) {
+                add(chat, actions, org.telegram.messenger.R.drawable.msg_list, tr("Суть", "The Gist"),
+                    () -> AiSheet.run(chat, tr("Суть", "The Gist"), AiTasks.summarizeText(text), null));
+            }
+            add(chat, actions, org.telegram.messenger.R.drawable.msg_info, tr("Объяснить", "Explain"),
+                () -> AiSheet.run(chat, tr("Объяснение", "Explanation"), AiTasks.explain(text), null));
+            add(chat, actions, org.telegram.messenger.R.drawable.msg_translate, tr("Перевод ассистентом", "Assistant Translation"),
+                () -> AiSheet.run(chat, tr("Перевод ассистентом", "Assistant Translation"), AiTasks.translate(text), null));
+            if (!message.isOut() && chat.getChatActivityEnterView() != null) {
+                add(chat, actions, org.telegram.messenger.R.drawable.msg_discussion, tr("Варианты ответа", "Reply Options"),
+                    () -> AiSheet.run(chat, tr("Варианты ответа", "Reply Options"),
+                        AiTasks.replies(transcript(chat, 20), tr("Я", "Me")), reply -> putIntoField(chat, reply), true));
+            }
+        }
         if (isPhoto(message)) {
-            names.add(tr("Что на картинке", "What Is in the Picture"));
-            actions.add(() -> withImage(chat, message, image -> AiSheet.runWithImage(chat, tr("Картинка", "Picture"), AiTasks.describeImage(), image)));
-            names.add(tr("Текст с картинки", "Text from the Picture"));
-            actions.add(() -> withImage(chat, message, image -> AiSheet.runWithImage(chat, tr("Текст с картинки", "Text from the Picture"), AiTasks.readImage(), image)));
-            names.add(tr("Спросить о картинке…", "Ask About the Picture…"));
-            actions.add(() -> Prompt.show(chat, tr("Вопрос о картинке", "Question About the Picture"), null, tr("Что вы хотите узнать?", "What do you want to know?"), "", Prompt.MULTILINE, question -> {
-                if (!question.isEmpty()) {
-                    withImage(chat, message, image -> AiSheet.runWithImage(chat, tr("Ответ", "Answer"), AiTasks.askImage(question), image));
-                }
-            }));
+            add(chat, actions, org.telegram.messenger.R.drawable.msg_photos, tr("Что на картинке", "What Is in the Picture"),
+                () -> withImage(chat, message, image -> AiSheet.runWithImage(chat, tr("Картинка", "Picture"), AiTasks.describeImage(), image)));
+            add(chat, actions, org.telegram.messenger.R.drawable.msg_text_check, tr("Текст с картинки", "Text from the Picture"),
+                () -> withImage(chat, message, image -> AiSheet.runWithImage(chat, tr("Текст с картинки", "Text from the Picture"), AiTasks.readImage(), image)));
         }
         if (isSpeech(message)) {
-            names.add(tr("Расшифровать", "Transcribe"));
-            actions.add(() -> transcribe(chat, message));
+            add(chat, actions, org.telegram.messenger.R.drawable.msg_voicechat, tr("Текст из записи", "Text from the Recording"), () -> transcribe(chat, message));
         }
-        if (!text.isEmpty()) {
-            names.add(tr("Объяснить", "Explain"));
-            actions.add(() -> AiSheet.run(chat, tr("Объяснение", "Explanation"), AiTasks.explain(text), null));
-            names.add(tr("Перевести", "Translate"));
-            actions.add(() -> AiSheet.run(chat, tr("Перевод", "Translation"), AiTasks.translate(text), null));
-            if (text.length() > 280) {
-                names.add(tr("Кратко", "Summarize"));
-                actions.add(() -> AiSheet.run(chat, tr("Кратко", "Summary"), AiTasks.summarizeText(text), null));
-            }
-            names.add(tr("Спросить о сообщении…", "Ask About the Message…"));
-            actions.add(() -> Prompt.show(chat, tr("Вопрос о сообщении", "Question About the Message"), null, tr("Что вы хотите узнать?", "What do you want to know?"), "", Prompt.MULTILINE, question -> {
+
+        // One question line for whatever the message has: its picture first, else its text.
+        final String askHint;
+        final Runnable onAsk;
+        if (isPhoto(message)) {
+            askHint = tr("Спросить о картинке…", "Ask about the picture…");
+            onAsk = () -> Prompt.show(chat, tr("Вопрос о картинке", "Question About the Picture"), null, tr("Что вы хотите узнать?", "What do you want to know?"), "", Prompt.MULTILINE, question -> {
                 if (!question.isEmpty()) {
-                    AiSheet.run(chat, tr("Ответ", "Answer"), AiTasks.askAbout(text, question), null);
+                    guarded(chat, () -> withImage(chat, message, image -> AiSheet.runWithImage(chat, tr("Ответ", "Answer"), AiTasks.askImage(question), image)));
                 }
-            }));
-            if (!message.isOut() && chat.getChatActivityEnterView() != null) {
-                names.add(tr("Предложить ответы", "Suggest Replies"));
-                actions.add(() -> AiSheet.run(chat, tr("Варианты ответа", "Reply Options"),
-                    AiTasks.replies(transcript(chat, 20), tr("Я", "Me")), reply -> putIntoField(chat, reply), true));
-            }
+            });
+        } else if (!text.isEmpty()) {
+            askHint = tr("Спросить о сообщении…", "Ask about the message…");
+            onAsk = () -> Prompt.show(chat, tr("Вопрос о сообщении", "Question About the Message"), null, tr("Что вы хотите узнать?", "What do you want to know?"), "", Prompt.MULTILINE, question -> {
+                if (!question.isEmpty()) {
+                    guarded(chat, () -> AiSheet.run(chat, tr("Ответ", "Answer"), AiTasks.askAbout(text, question), null));
+                }
+            });
+        } else {
+            askHint = null;
+            onAsk = null;
         }
-        if (names.isEmpty()) {
+        if (actions.isEmpty() && onAsk == null) {
             return;
         }
-        choose(chat, names, actions);
+        AiPanel.show(chat, text, actions, askHint, onAsk);
+    }
+
+    /** A tile whose action waits for a provider and for the user's consent before anything leaves. */
+    private static void add(ChatActivity chat, ArrayList<AiPanel.Action> actions, int icon, String title, Runnable run) {
+        actions.add(new AiPanel.Action(icon, title, () -> guarded(chat, run)));
     }
 
     public static void onChatMenu(ChatActivity chat) {
@@ -181,47 +194,39 @@ public final class AiInChat {
                 "Copying is switched off in this chat, so the assistant does not work here.")).show();
             return;
         }
-        final ArrayList<CharSequence> names = new ArrayList<>();
-        final ArrayList<Runnable> actions = new ArrayList<>();
-        names.add(tr("Пересказать последние сообщения", "Summarize the Latest Messages"));
-        actions.add(() -> {
-            final String transcript = transcript(chat, Ai.contextSize);
-            if (transcript.isEmpty()) {
-                return;
-            }
-            AiSheet.run(chat, tr("Пересказ чата", "Chat Summary"), AiTasks.summarizeChat(transcript), null);
-        });
-        names.add(tr("Спросить о чате…", "Ask About the Chat…"));
-        actions.add(() -> Prompt.show(chat, tr("Вопрос о чате", "Question About the Chat"), null, tr("Например: о чём договорились?", "For example: what was agreed?"), "", Prompt.MULTILINE, question -> {
-            final String transcript = transcript(chat, Ai.contextSize);
-            if (!question.isEmpty() && !transcript.isEmpty()) {
-                AiSheet.run(chat, tr("Ответ", "Answer"), AiTasks.askChat(transcript, question), null);
-            }
-        }));
+        final ArrayList<AiPanel.Action> actions = new ArrayList<>();
+        add(chat, actions, org.telegram.messenger.R.drawable.msg_list, tr("Пересказ чата", "Chat Summary"), () -> overChat(chat, tr("Пересказ чата", "Chat Summary"), AiTasks::summarizeChat));
+        add(chat, actions, org.telegram.messenger.R.drawable.msg_select, tr("О чём договорились", "What Was Agreed"), () -> overChat(chat, tr("О чём договорились", "What Was Agreed"), AiTasks::decisions));
+        add(chat, actions, org.telegram.messenger.R.drawable.msg_markunread, tr("Что ждут от меня", "What Is Asked of Me"), () -> overChat(chat, tr("Что ждут от меня", "What Is Asked of Me"), AiTasks::askedOfMe));
+        add(chat, actions, org.telegram.messenger.R.drawable.msg_help, tr("Вопросы без ответа", "Unanswered Questions"), () -> overChat(chat, tr("Вопросы без ответа", "Unanswered Questions"), AiTasks::openQuestions));
         if (chat.getChatActivityEnterView() != null) {
             final CharSequence draft = chat.getChatActivityEnterView().getFieldText();
             if (draft != null && draft.toString().trim().length() > 0) {
                 final String mine = draft.toString().trim();
+                actions.add(AiPanel.Action.heading(tr("Мой текст в поле ввода", "My Text in the Message Field")));
                 for (AiTasks.Rewrite r : AiTasks.REWRITES) {
-                    names.add(tr("Мой текст: ", "My text: ") + r.title().toLowerCase());
-                    actions.add(() -> AiSheet.run(chat, r.title(), AiTasks.rewrite(mine, r), result -> putIntoField(chat, result)));
+                    add(chat, actions, org.telegram.messenger.R.drawable.msg_edit, r.title(), () -> AiSheet.run(chat, r.title(), AiTasks.rewrite(mine, r), result -> putIntoField(chat, result)));
                 }
             }
         }
-        choose(chat, names, actions);
+        AiPanel.show(chat, null, actions, tr("Спросить о чате…", "Ask about the chat…"),
+            () -> Prompt.show(chat, tr("Вопрос о чате", "Question About the Chat"), null, tr("Например: когда созвон?", "For example: when is the call?"), "", Prompt.MULTILINE, question -> {
+                final String transcript = transcript(chat, Ai.contextSize);
+                if (!question.isEmpty() && !transcript.isEmpty()) {
+                    guarded(chat, () -> AiSheet.run(chat, tr("Ответ", "Answer"), AiTasks.askChat(transcript, question), null));
+                }
+            }));
     }
 
-    private static void choose(ChatActivity chat, ArrayList<CharSequence> names, ArrayList<Runnable> actions) {
-        final AlertDialog.Builder builder = new AlertDialog.Builder(chat.getContext(), chat.getResourceProvider());
-        builder.setTitle(tr("Ассистент", "Assistant"));
-        builder.setItems(names.toArray(new CharSequence[0]), (dialog, which) -> {
-            if (which >= 0 && which < actions.size()) {
-                // Asking a question opens its own dialog first; the guard runs before anything leaves.
-                guarded(chat, actions.get(which));
-            }
-        });
-        builder.setNegativeButton(LocaleController.getString(org.telegram.messenger.R.string.Cancel), null);
-        chat.showDialog(builder.create());
+    private interface OverChat {
+        String prompt(String transcript);
+    }
+
+    private static void overChat(ChatActivity chat, String title, OverChat task) {
+        final String transcript = transcript(chat, Ai.contextSize);
+        if (!transcript.isEmpty()) {
+            AiSheet.run(chat, title, task.prompt(transcript), null);
+        }
     }
 
     private static void putIntoField(ChatActivity chat, String text) {

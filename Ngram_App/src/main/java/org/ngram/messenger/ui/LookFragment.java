@@ -43,7 +43,27 @@ public class LookFragment extends NgramFragment {
     private static final int SYSTEM_BOLD = 23;
     private static final int STORIES = 24;
     private static final int TITLE = 25;
+    private static final int BACK_COUNTER = 30;
+    private static final int FIT_TITLE = 31;
+    private static final int IOS_INPUT = 32;
+    private static final int COLOR_PROFILES = 33;
+    private static final int OPEN_GLASS = 100;
+    private static final int OPEN_MOTION = 101;
+    private static final int OPEN_CHAT = 102;
+    private static final int OPEN_MAIN = 103;
+    private static final int OPEN_ICONS = 104;
     private static final int PRESET_FIRST = 200;
+
+    /** Which page of the look this screen shows; 0 is the list of pages. */
+    private final int page;
+
+    public LookFragment() {
+        this(0);
+    }
+
+    private LookFragment(int page) {
+        this.page = page;
+    }
 
     /** The colours offered for tinting the glass; 0 is "no tint", 1 stands for the theme's accent. */
     private static final int[] COLORS = {
@@ -56,11 +76,78 @@ public class LookFragment extends NgramFragment {
 
     @Override
     protected CharSequence getTitle() {
-        return tr("Оформление Ngram", "Ngram Look");
+        switch (page) {
+            case OPEN_GLASS:
+                return tr("Стекло", "Glass");
+            case OPEN_MOTION:
+                return tr("Движение и элементы", "Motion and Controls");
+            case OPEN_CHAT:
+                return tr("Экран чата и профили", "Chat Screen and Profiles");
+            case OPEN_MAIN:
+                return tr("Главный экран", "Main Screen");
+            default:
+                return tr("Оформление Ngram", "Ngram Look");
+        }
     }
 
     @Override
     protected void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+        switch (page) {
+            case OPEN_GLASS:
+                fillGlass(items);
+                break;
+            case OPEN_MOTION:
+                fillMotion(items);
+                break;
+            case OPEN_CHAT:
+                fillChat(items);
+                break;
+            case OPEN_MAIN:
+                fillMain(items);
+                break;
+            default:
+                fillPages(items);
+                break;
+        }
+    }
+
+    private void fillPages(ArrayList<UItem> items) {
+        items.add(UItem.asButton(OPEN_GLASS, org.telegram.messenger.R.drawable.msg_blur_radial, tr("Стекло", "Glass"),
+            Math.round(NgramConfig.glassTint * 100) + "%"));
+        items.add(UItem.asButton(OPEN_MOTION, org.telegram.messenger.R.drawable.msg_reactions, tr("Движение и элементы", "Motion and Controls"),
+            NgramConfig.pressMotion == NgramConfig.MOTION_JELLY ? tr("желе", "jelly") : NgramConfig.pressMotion == NgramConfig.MOTION_GLASS ? tr("стекло", "glass") : tr("обычный", "plain")));
+        items.add(UItem.asButton(OPEN_CHAT, org.telegram.messenger.R.drawable.msg_discussion, tr("Экран чата и профили", "Chat Screen and Profiles"),
+            NgramConfig.iosInput ? tr("как в iOS", "iOS style") : tr("как в Telegram", "as in Telegram")));
+        items.add(UItem.asButton(OPEN_MAIN, org.telegram.messenger.R.drawable.msg_list, tr("Главный экран", "Main Screen"),
+            NgramConfig.mainTitle.isEmpty() ? "Ngram" : NgramConfig.mainTitle));
+        items.add(UItem.asButton(OPEN_ICONS, org.telegram.messenger.R.drawable.msg_emoji_activities, tr("Значок приложения", "App Icon")));
+        items.add(UItem.asShadow(tr(
+            "Здесь то, как выглядит и движется сам Ngram. Темы, обои и скругление сообщений — по-прежнему в настройках чатов Telegram.",
+            "This is how Ngram itself looks and moves. Themes, wallpapers and message corners are still under Telegram's Chat Settings.")));
+    }
+
+    private void fillChat(ArrayList<UItem> items) {
+        items.add(UItem.asHeader(tr("Шапка чата", "Chat Header")));
+        items.add(UItem.asCheck(BACK_COUNTER, tr("Число непрочитанных у стрелки «Назад»", "Unread Count Next to the Back Arrow")).setChecked(NgramConfig.backCounter));
+        items.add(UItem.asCheck(FIT_TITLE, tr("Заголовок по длине названия", "Title as Wide as the Name")).setChecked(NgramConfig.fitTitle));
+        items.add(UItem.asShadow(tr(
+            "Число — сколько непрочитанных сообщений ждёт в других чатах, то же, что на вкладке «Чаты». Заголовок: стеклянная капсула с названием чата занимает столько места, сколько нужно тексту, и стоит по центру; на остальных экранах слишком длинный заголовок сначала уменьшается и только потом обрезается.",
+            "The count is how many unread messages wait in other chats, the same number as on the Chats tab. The title: the glass capsule with the chat's name takes as much room as the text needs and sits in the middle; on other screens a title that is too long first gets smaller and only then is cut.")));
+
+        items.add(UItem.asHeader(tr("Строка ввода", "Message Field")));
+        items.add(UItem.asCheck(IOS_INPUT, tr("Кнопки отдельно от поля", "Buttons Apart from the Field")).setChecked(NgramConfig.iosInput));
+        items.add(UItem.asShadow(tr(
+            "Скрепка стоит в собственном стеклянном круге слева от поля, кнопка записи и отправки — отдельно справа, как в iOS. Скрепка остаётся на месте, пока вы печатаете.",
+            "The paperclip stands in a glass circle of its own to the left of the field, the record and send button apart on the right, as on iOS. The paperclip stays where it is while you type.")));
+
+        items.add(UItem.asHeader(tr("Профили", "Profiles")));
+        items.add(UItem.asCheck(COLOR_PROFILES, tr("Цветная шапка у каждого профиля", "A Coloured Header for Every Profile")).setChecked(NgramConfig.colorProfiles));
+        items.add(UItem.asShadow(tr(
+            "Профиль человека, группы или канала, у которого нет своего цвета, получает шапку в цвет его аватара. Это видите только вы: чужой профиль не меняется.",
+            "The profile of a person, group or channel that has no colour of its own gets a header in the colour of its avatar. Only you see this: nobody's profile is changed.")));
+    }
+
+    private void fillGlass(ArrayList<UItem> items) {
         presets.clear();
         presets.addAll(LookPresets.builtIn());
         presets.addAll(LookPresets.saved());
@@ -121,6 +208,9 @@ public class LookFragment extends NgramFragment {
             "Стекло собирается при открытии экрана. Уже открытые экраны обновятся, когда вы выйдете отсюда или нажмёте «Применить сейчас».",
             "Glass is built when a screen opens. Screens already open are refreshed when you leave this one or tap Apply Now.")));
 
+    }
+
+    private void fillMotion(ArrayList<UItem> items) {
         items.add(UItem.asHeader(tr("Отклик кнопок", "Button Press")));
         items.add(UItem.asRadio(MOTION_JELLY, tr("Желе", "Jelly"), tr("сплющивается и дрожит", "squashes and wobbles"))
             .setChecked(NgramConfig.pressMotion == NgramConfig.MOTION_JELLY));
@@ -129,8 +219,8 @@ public class LookFragment extends NgramFragment {
         items.add(UItem.asRadio(MOTION_PLAIN, tr("Обычный", "Plain"), tr("как в Telegram", "as in Telegram"))
             .setChecked(NgramConfig.pressMotion == NgramConfig.MOTION_PLAIN));
         items.add(UItem.asShadow(tr(
-            "Действует на кнопки, созданные после изменения.",
-            "Applies to buttons created after the change.")));
+            "Так ведут себя кнопки, плитки, вкладки и стекло под кнопками в шапке чата и у строки ввода. Действует на то, что создано после изменения.",
+            "This is how buttons, tiles, tabs and the glass under the buttons of the chat header and message field behave. Applies to what is created after the change.")));
 
         items.add(UItem.asHeader(tr("Элементы", "Controls")));
         items.add(UItem.asCheck(IOS_SWITCH, tr("Переключатели как в iOS", "iOS-Style Switches")).setChecked(NgramConfig.iosSwitch));
@@ -139,6 +229,9 @@ public class LookFragment extends NgramFragment {
             "Переключатели — широкая зелёная капсула вместо тонкого переключателя Telegram. Шрифт — заголовки и имена рисуются шрифтом телефона, а не встроенным Roboto.",
             "Switches become a wide green capsule instead of Telegram's thin one. The font option draws titles and names with the phone's own font instead of the bundled Roboto.")));
 
+    }
+
+    private void fillMain(ArrayList<UItem> items) {
         items.add(UItem.asHeader(tr("Главный экран", "Main Screen")));
         items.add(UItem.asButton(TITLE, tr("Заголовок", "Title"), NgramConfig.mainTitle.isEmpty() ? "Ngram" : NgramConfig.mainTitle));
         items.add(UItem.asCheck(TAB_TITLES, tr("Подписи на панели вкладок", "Titles on the Tab Bar")).setChecked(NgramConfig.tabTitles));
@@ -285,6 +378,31 @@ public class LookFragment extends NgramFragment {
             case IOS_SWITCH:
                 NgramConfig.set("iosSwitch", !NgramConfig.iosSwitch);
                 refresh();
+                break;
+            case BACK_COUNTER:
+                NgramConfig.set("backCounter", !NgramConfig.backCounter);
+                refresh();
+                break;
+            case FIT_TITLE:
+                NgramConfig.set("fitTitle", !NgramConfig.fitTitle);
+                refresh();
+                break;
+            case IOS_INPUT:
+                NgramConfig.set("iosInput", !NgramConfig.iosInput);
+                refresh();
+                break;
+            case COLOR_PROFILES:
+                NgramConfig.set("colorProfiles", !NgramConfig.colorProfiles);
+                refresh();
+                break;
+            case OPEN_GLASS:
+            case OPEN_MOTION:
+            case OPEN_CHAT:
+            case OPEN_MAIN:
+                presentFragment(new LookFragment(item.id));
+                break;
+            case OPEN_ICONS:
+                presentFragment(new IconsFragment());
                 break;
             case SYSTEM_BOLD:
                 SharedConfig.toggleUseSystemBoldFont();

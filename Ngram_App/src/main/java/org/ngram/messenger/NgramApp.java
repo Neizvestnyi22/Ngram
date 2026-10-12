@@ -31,6 +31,28 @@ public class NgramApp extends ApplicationLoader {
         return BuildConfig.APPLICATION_ID;
     }
 
+    /** Ngram's entries in the menu of the main screen (the three dots above the chat list). */
+    @Override
+    public void addItemOptions(org.telegram.ui.Components.ItemOptions options) {
+        try {
+            org.ngram.messenger.features.MainMenu.fill(options);
+        } catch (Throwable e) {
+            org.telegram.messenger.FileLog.e(e);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        org.ngram.messenger.plugins.Plugins.onApp(true);
+    }
+
+    @Override
+    public boolean onPause() {
+        org.ngram.messenger.plugins.Plugins.onApp(false);
+        return super.onPause();
+    }
+
     /** Installed from an APK and not from a store: no store billing, no store update channel. */
     @Override
     protected boolean isStandalone() {

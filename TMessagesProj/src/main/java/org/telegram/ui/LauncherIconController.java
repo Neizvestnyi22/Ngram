@@ -39,7 +39,18 @@ public class LauncherIconController {
         AQUA("AquaIcon", R.drawable.icon_4_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconAqua),
         PREMIUM("PremiumIcon", R.drawable.icon_3_background_sa, R.mipmap.icon_3_foreground_sa, R.string.AppIconPremium), // Ngram: its own artwork in every slot, so no slot is a Premium perk
         TURBO("TurboIcon", R.drawable.icon_5_background_sa, R.mipmap.icon_5_foreground_sa, R.string.AppIconTurbo),
-        NOX("NoxIcon", R.mipmap.icon_2_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconNox);
+        NOX("NoxIcon", R.mipmap.icon_2_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconNox),
+        // Ngram: more icons of its own; their names come from Ngram and not from Telegram's texts.
+        NG_GLASS("NgGlassIcon", R.drawable.ngram_ic_glass_bg, R.drawable.ngram_ic_glass_fg, 0),
+        NG_TERMINAL("NgTerminalIcon", R.drawable.ngram_ic_terminal_bg, R.drawable.ngram_ic_terminal_fg, 0),
+        NG_PIXEL("NgPixelIcon", R.drawable.ngram_ic_pixel_bg, R.drawable.ngram_ic_pixel_fg, 0),
+        NG_RETRO("NgRetroIcon", R.drawable.ngram_ic_retro_bg, R.drawable.ngram_ic_retro_fg, 0),
+        NG_SYNTH("NgSynthIcon", R.drawable.ngram_ic_synth_bg, R.drawable.ngram_ic_synth_fg, 0),
+        NG_BRAT("NgBratIcon", R.drawable.ngram_ic_brat_bg, R.drawable.ngram_ic_brat_fg, 0),
+        NG_SHADES("NgShadesIcon", R.drawable.ngram_ic_shades_bg, R.drawable.ngram_ic_shades_fg, 0),
+        NG_RAINBOW("NgRainbowIcon", R.drawable.ngram_ic_rainbow_bg, R.drawable.ngram_ic_rainbow_fg, 0),
+        NG_STONKS("NgStonksIcon", R.drawable.ngram_ic_stonks_bg, R.drawable.ngram_ic_stonks_fg, 0),
+        NG_CAT("NgCatIcon", R.drawable.ngram_ic_cat_bg, R.drawable.ngram_ic_cat_fg, 0);
 
         public final String key;
         public final int background;
@@ -48,6 +59,15 @@ public class LauncherIconController {
         public final boolean premium;
 
         private ComponentName componentName;
+
+        /** Ngram: the name shown under the icon. */
+        public String getTitle() {
+            final String own = org.ngram.core.NgramHooks.iconTitle(key);
+            if (own != null) {
+                return own;
+            }
+            return title == 0 ? key : org.telegram.messenger.LocaleController.getString(title);
+        }
 
         public ComponentName getComponentName(Context ctx) {
             if (componentName == null) {

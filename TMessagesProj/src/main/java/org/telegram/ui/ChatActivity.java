@@ -2289,6 +2289,9 @@ public class ChatActivity extends BaseFragment implements
             if (actionBar.isSearchFieldVisible()) {
                 return;
             }
+            if (chatActivityEnterView != null && chatActivityEnterView.ngramAttachIsLeft()) { // Ngram: the attach button never left
+                return;
+            }
             if (editTextItem != null && !isEditTextItemVisibilitySuppressed) {
                 editTextItem.setVisibility(View.GONE);
             }
@@ -3368,6 +3371,11 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        NgramHooks.onChat(this, false); // Ngram: plugins hear about chats closing
+        if (ngramBackCounter != null) { // Ngram
+            ngramBackCounter.detach();
+            ngramBackCounter = null;
+        }
         if (messageMetricsView != null) {
             messageMetricsView.finish();
         }
@@ -4604,6 +4612,17 @@ public class ChatActivity extends BaseFragment implements
             actionBar.setChatAvatarContainer(avatarContainer);
             actionBar.setForcedMenuMinWidth(dp(46));
             avatarContainer.setActionBar(actionBar);
+        } else if (avatarContainer != null && avatarContainer.getParent() == actionBar && !inPreviewMode && !inBubbleMode && !isInsideContainer) {
+            // Ngram: every chat gets the capsule that follows the width of its title, and the
+            // header makes room for the unread number next to the back arrow.
+            actionBar.setChatAvatarContainer(avatarContainer);
+            actionBar.ngramWideCapsule = !NgramConfig.fitTitle;
+            avatarContainer.setActionBar(actionBar);
+            org.ngram.core.NgramMotion.apply(avatarContainer, actionBar::invalidate);
+            if (ngramBackCounter != null) {
+                ngramBackCounter.detach();
+            }
+            ngramBackCounter = org.ngram.core.NgramBackCounter.attach(currentAccount, actionBar);
         }
 
         chatInputViewsContainer = new ChatInputViewsContainer(context);
@@ -4613,6 +4632,10 @@ public class ChatActivity extends BaseFragment implements
             glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
         chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
             glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+        if (NgramConfig.iosInput && !inPreviewMode && !inBubbleMode && !isInsideContainer) { // Ngram: side buttons on their own glass
+            chatInputViewsContainer.setNgramSideDrawable(
+                glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+        }
 
 
         chatInputBubbleContainer = chatInputViewsContainer.getInputIslandBubbleContainer();
@@ -8068,6 +8091,9 @@ public class ChatActivity extends BaseFragment implements
             chatActivityEnterView.setSideButtonsForAttach(sideControlsButtonsLayout);
         }
         chatActivityEnterView.setInAppInsetsController(windowInsetsStateHolder);
+        if (NgramConfig.iosInput && !inPreviewMode && !inBubbleMode && !isInsideContainer) { // Ngram: side buttons on their own glass
+            chatActivityEnterView.setNgramSides(chatInputViewsContainer::setNgramSides);
+        }
         chatActivityEnterView.setDialogId(dialog_id, currentAccount);
         if (chatInfo != null) {
             chatActivityEnterView.setChatInfo(chatInfo);
@@ -27066,6 +27092,10 @@ public class ChatActivity extends BaseFragment implements
     public void onBecomeFullyVisible() {
         isFullyVisible = true;
         super.onBecomeFullyVisible();
+        if (!ngramOpenSent) { // Ngram: plugins hear about chats opening
+            ngramOpenSent = true;
+            NgramHooks.onChat(this, true);
+        }
         if (showCloseChatDialogLater) {
             showDialog(closeChatDialog);
         }
@@ -33332,6 +33362,9 @@ public class ChatActivity extends BaseFragment implements
         }
         MediaController.saveFile(path, getParentActivity(), messageObject.isVideo() ? 1 : 0, null, null);
     }
+
+    private org.ngram.core.NgramBackCounter ngramBackCounter; // Ngram: the unread number next to the back arrow
+    private boolean ngramOpenSent; // Ngram: plugins were told that this chat is open
 
     /** Ngram: runs a standard message-menu action on a message, as if it was picked from its menu. */
     public void ngramRunOption(MessageObject message, int option) {
@@ -46447,6 +46480,7 @@ public class ChatActivity extends BaseFragment implements
         inputIslandHeightTarget = calculateInputIslandHeight(true);
 
         chatInputViewsContainer.setInputBubbleHeight(inputIslandHeightCurrent);
+        chatInputViewsContainer.setNgramSidesShown(bottomViewsVisibilityController.getVisibility(MESSAGE_INPUT_CONTAINER)); // Ngram
         updatePagedownButtonsPosition();
         updateBotforumTabsBottomMargin();
         checkUi_botMenuPosition();

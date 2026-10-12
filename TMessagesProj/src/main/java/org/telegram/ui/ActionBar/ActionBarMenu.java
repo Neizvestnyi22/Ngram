@@ -122,6 +122,9 @@ public class ActionBarMenu extends LinearLayout {
     public ActionBarMenuItem addItemAt(int index, int id, int icon, CharSequence text, int backgroundColor, Drawable drawable, int width, CharSequence title, Theme.ResourcesProvider resourcesProvider) {
         ActionBarMenuItem menuItem = new ActionBarMenuItem(getContext(), this, backgroundColor, isActionMode ? parentActionBar.itemsActionModeColor : parentActionBar.itemsColor, text != null, resourcesProvider);
         menuItem.setTag(id);
+        if (glassMode) { // Ngram: glass buttons give under the finger
+            ngramPress(menuItem);
+        }
         if (text != null) {
             menuItem.textView.setText(text);
             LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(width != 0 ? width : ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -634,6 +637,34 @@ public class ActionBarMenu extends LinearLayout {
 
     public void setGlassMode(boolean glassMode) {
         this.glassMode = glassMode;
+        if (glassMode) { // Ngram: glass buttons give under the finger
+            for (int a = 0, N = getChildCount(); a < N; a++) {
+                if (getChildAt(a) instanceof ActionBarMenuItem) {
+                    ngramPress(getChildAt(a));
+                }
+            }
+        }
+    }
+
+    private void ngramPress(View item) {
+        if (parentActionBar != null) {
+            org.ngram.core.NgramMotion.apply(item, parentActionBar::invalidate);
+        }
+    }
+
+    /** Ngram: the item that is being pressed right now, for the glass behind the menu to follow. */
+    public View ngramPressedItem() {
+        for (int a = 0, N = getChildCount(); a < N; a++) {
+            final View view = getChildAt(a);
+            if (view.getVisibility() != VISIBLE || !(view instanceof ActionBarMenuItem)) {
+                continue;
+            }
+            final float sx = view.getScaleX(), sy = view.getScaleY();
+            if ((sx != 1f || sy != 1f) && sx > 0.85f && sx < 1.2f && sy > 0.8f && sy < 1.2f) {
+                return view;
+            }
+        }
+        return null;
     }
 
     @Override

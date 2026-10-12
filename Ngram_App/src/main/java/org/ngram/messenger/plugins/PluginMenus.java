@@ -236,4 +236,19 @@ public final class PluginMenus {
     public static void clickGeneral(BaseFragment fragment, Item item) {
         click(item, context(fragment, 0, null));
     }
+
+    /** The same items in the menu of the main screen (the three dots above the chat list). */
+    public static void fillMainMenu(org.telegram.ui.Components.ItemOptions options) {
+        if (items.isEmpty() || !Plugins.started()) {
+            return;
+        }
+        for (Item item : general()) {
+            options.add(icon(item.icon), item.text, () -> {
+                final BaseFragment last = org.telegram.ui.LaunchActivity.getSafeLastFragment();
+                if (last != null) {
+                    clickGeneral(last, item);
+                }
+            });
+        }
+    }
 }

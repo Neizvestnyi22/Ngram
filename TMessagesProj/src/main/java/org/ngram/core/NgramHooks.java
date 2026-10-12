@@ -90,6 +90,21 @@ public final class NgramHooks {
          * with (the same object, possibly changed) or null to send nothing.
          */
         SendMessagesHelper.SendMessageParams onSendMessage(int account, SendMessagesHelper.SendMessageParams params);
+
+        /** A chat screen has been built (opened = true) or is going away for good. */
+        void onChat(ChatActivity chat, boolean opened);
+
+        /** A link is about to be opened; true when Ngram has dealt with it itself. */
+        boolean onOpenUrl(Context context, android.net.Uri uri);
+
+        /** The screen of the Feed tab, or null when there is no such tab. */
+        BaseFragment createFeed(android.os.Bundle args);
+
+        /** The name under the icon of the Feed tab. */
+        CharSequence feedTitle();
+
+        /** Ngram's own name for an app icon (by the key of its launcher alias), or null. */
+        String iconTitle(String key);
     }
 
     public static final int CONFIRM_CALL = 1;
@@ -343,6 +358,67 @@ public final class NgramHooks {
         } catch (Throwable e) {
             report(e);
             return params;
+        }
+    }
+
+    public static void onChat(ChatActivity chat, boolean opened) {
+        final Host h = host;
+        if (h != null && chat != null) {
+            try {
+                h.onChat(chat, opened);
+            } catch (Throwable e) {
+                report(e);
+            }
+        }
+    }
+
+    public static boolean onOpenUrl(Context context, android.net.Uri uri) {
+        final Host h = host;
+        if (h == null || context == null || uri == null) {
+            return false;
+        }
+        try {
+            return h.onOpenUrl(context, uri);
+        } catch (Throwable e) {
+            report(e);
+            return false;
+        }
+    }
+
+    /** Whether the main screen gets a Feed tab between Chats and Contacts. */
+    public static boolean feedTab() {
+        return host != null && NgramConfig.feedTab;
+    }
+
+    public static BaseFragment createFeed(android.os.Bundle args) {
+        final Host h = host;
+        if (h == null) {
+            return null;
+        }
+        try {
+            return h.createFeed(args);
+        } catch (Throwable e) {
+            report(e);
+            return null;
+        }
+    }
+
+    public static CharSequence feedTitle() {
+        final Host h = host;
+        try {
+            final CharSequence title = h == null ? null : h.feedTitle();
+            return title == null ? "Feed" : title;
+        } catch (Throwable e) {
+            return "Feed";
+        }
+    }
+
+    public static String iconTitle(String key) {
+        final Host h = host;
+        try {
+            return h == null ? null : h.iconTitle(key);
+        } catch (Throwable e) {
+            return null;
         }
     }
 

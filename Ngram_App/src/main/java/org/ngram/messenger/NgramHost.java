@@ -8,21 +8,15 @@ import android.content.Intent;
 
 import org.ngram.core.NgramConfig;
 import org.ngram.core.NgramHooks;
-import org.ngram.messenger.ai.Ai;
 import org.ngram.messenger.debug.Demo;
 import org.ngram.messenger.features.ChatTools;
 import org.ngram.messenger.features.Details;
 import org.ngram.messenger.features.Secure;
 import org.ngram.messenger.plugins.PluginMenus;
 import org.ngram.messenger.plugins.Plugins;
-import org.ngram.messenger.ui.AboutFragment;
-import org.ngram.messenger.ui.ChatsFragment;
-import org.ngram.messenger.ui.DataFragment;
-import org.ngram.messenger.ui.LookFragment;
-import org.ngram.messenger.ui.PluginsFragment;
-import org.ngram.messenger.ui.ai.AiChatFragment;
+import org.ngram.messenger.ui.FeedFragment;
+import org.ngram.messenger.ui.HubFragment;
 import org.ngram.messenger.ui.ai.AiInChat;
-import org.ngram.messenger.ui.ai.AiSettingsFragment;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.SendMessagesHelper;
 import org.telegram.tgnet.TLObject;
@@ -37,63 +31,21 @@ import java.util.ArrayList;
 /** Ngram's side of {@link NgramHooks}: what Telegram's code gets when it asks Ngram. */
 public final class NgramHost implements NgramHooks.Host {
 
-    private static final int ID_LOOK = NgramHooks.SETTINGS_ID_BASE + 1;
-    private static final int ID_AI = NgramHooks.SETTINGS_ID_BASE + 2;
-    private static final int ID_CHATS = NgramHooks.SETTINGS_ID_BASE + 3;
-    private static final int ID_PLUGINS = NgramHooks.SETTINGS_ID_BASE + 4;
-    private static final int ID_DATA = NgramHooks.SETTINGS_ID_BASE + 5;
-    private static final int ID_ABOUT = NgramHooks.SETTINGS_ID_BASE + 9;
+    private static final int ID_HUB = NgramHooks.SETTINGS_ID_BASE + 1;
 
     @Override
     public void fillSettings(ArrayList<UItem> items) {
-        items.add(UItem.asHeader("Ngram"));
+        // One row: everything of Ngram's own is behind it, on a screen of its own.
         items.add(SettingsActivity.SettingCell.Factory.of(
-            ID_LOOK, 0xFF39C0FF, 0xFF2E86FF, R.drawable.ngram_set_look,
-            tr("Оформление", "Look"),
-            tr("Стекло, оттенок, отклик кнопок", "Glass, tint, button press")));
-        items.add(SettingsActivity.SettingCell.Factory.of(
-            ID_CHATS, 0xFF5DD66B, 0xFF2BB673, R.drawable.ngram_set_chats,
-            tr("Чаты", "Chats"),
-            tr("Сообщения, двойное нажатие, шаблоны", "Messages, double tap, templates")));
-        final Ai.Provider provider = Ai.active();
-        items.add(SettingsActivity.SettingCell.Factory.of(
-            ID_AI, 0xFFB659FF, 0xFF617CFF, R.drawable.ngram_set_ai,
-            tr("Ассистент", "Assistant"),
-            provider == null || !provider.ready()
-                ? tr("ИИ с вашим ключом API", "AI with your own API key")
-                : provider.title() + " · " + provider.model));
-        items.add(SettingsActivity.SettingCell.Factory.of(
-            ID_PLUGINS, 0xFFFFB13B, 0xFFFF7A2F, R.drawable.ngram_set_plugins,
-            tr("Плагины", "Plugins"),
-            Plugins.summary()));
-        items.add(SettingsActivity.SettingCell.Factory.of(
-            ID_DATA, 0xFF5AC8FA, 0xFF3478F6, R.drawable.ngram_set_data,
-            tr("Данные", "Data"),
-            tr("Копия настроек, диагностика", "Settings backup, diagnostics")));
-        items.add(SettingsActivity.SettingCell.Factory.of(
-            ID_ABOUT, 0xFF8E8E93, 0xFF636366, R.drawable.ngram_set_about,
-            tr("О приложении", "About"),
-            "Ngram " + BuildConfig.VERSION_NAME + " · Telegram " + BuildConfig.TELEGRAM_VERSION));
+            ID_HUB, 0xFF39C0FF, 0xFF7A5CFF, R.drawable.ngram_set_about,
+            "Ngram",
+            tr("Оформление, лента, ассистент, плагины", "Look, feed, assistant, plugins")));
     }
 
     @Override
     public BaseFragment openSettings(int id) {
-        if (id == ID_LOOK) {
-            return new LookFragment();
-        } else if (id == ID_CHATS) {
-            return new ChatsFragment();
-        } else if (id == ID_AI) {
-            return Ai.ready() ? new AiChatFragment() : new AiSettingsFragment();
-        } else if (id == ID_PLUGINS) {
-            return new PluginsFragment();
-        } else if (id == ID_DATA) {
-            return new DataFragment();
-        } else if (id == ID_ABOUT) {
-            return new AboutFragment();
-        }
-        return null;
+        return id == ID_HUB ? new HubFragment() : null;
     }
-
     @Override
     public void onLaunch(Activity activity, Intent intent) {
         Secure.attach(activity);
@@ -215,5 +167,53 @@ public final class NgramHost implements NgramHooks.Host {
     @Override
     public SendMessagesHelper.SendMessageParams onSendMessage(int account, SendMessagesHelper.SendMessageParams params) {
         return Plugins.onSendMessage(account, params);
+    }
+
+    @Override
+    public void onChat(ChatActivity chat, boolean opened) {
+        Plugins.onChat(chat, opened);
+    }
+
+    @Override
+    public boolean onOpenUrl(Context context, android.net.Uri uri) {
+        return Plugins.onOpenUrl(context, uri);
+    }
+
+    @Override
+    public BaseFragment createFeed(android.os.Bundle args) {
+        return new FeedFragment(args);
+    }
+
+    @Override
+    public CharSequence feedTitle() {
+        return tr("Лента", "Feed");
+    }
+
+    @Override
+    public String iconTitle(String key) {
+        switch (key) {
+            case "NgGlassIcon":
+                return tr("Стекло", "Glass");
+            case "NgTerminalIcon":
+                return tr("Терминал", "Terminal");
+            case "NgPixelIcon":
+                return "3310";
+            case "NgRetroIcon":
+                return tr("Ретро 95", "Retro 95");
+            case "NgSynthIcon":
+                return tr("Синтвейв", "Synthwave");
+            case "NgBratIcon":
+                return "brat";
+            case "NgShadesIcon":
+                return "Deal With It";
+            case "NgRainbowIcon":
+                return tr("Нян", "Nyan");
+            case "NgStonksIcon":
+                return "Stonks";
+            case "NgCatIcon":
+                return tr("Кот", "Cat");
+            default:
+                return null;
+        }
     }
 }
