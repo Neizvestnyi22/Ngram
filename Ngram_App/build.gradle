@@ -103,13 +103,21 @@ android {
     }
 
     signingConfigs {
-        // Signed with this machine's debug key, as every Ngram build so far, so a new build
-        // installs over the previous one. Replace with your own keystore before publishing.
+        // Your own key: signing.storeFile, signing.storePassword, signing.keyAlias and
+        // signing.keyPassword in local.properties. Without them the build is signed with this
+        // machine's debug key, which is fine for trying it out and not for handing it out.
         ngram {
-            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+            if (localProp('signing.storeFile')) {
+                storeFile file(localProp('signing.storeFile'))
+                storePassword localProp('signing.storePassword')
+                keyAlias localProp('signing.keyAlias')
+                keyPassword localProp('signing.keyPassword') ?: localProp('signing.storePassword')
+            } else {
+                storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
         }
     }
 

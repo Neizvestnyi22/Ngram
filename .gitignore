@@ -19,3 +19,4 @@ TMessagesProj/jni/ffmpeg/build_android
 /build.log
 /native_*.log
 /*.apk
+*.jks
