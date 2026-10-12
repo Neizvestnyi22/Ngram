@@ -793,8 +793,9 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
             loadTexture(R.drawable.intro_tg_plane, 21);
             loadTexture(v -> {
                 Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                paint.setColor(ThemeColors.TELEGRAM_COLOR); // It's logo color, it should not be colored by the theme
                 int size = dp(ICON_HEIGHT_DP);
+                // Ngram: the colours of its own icon instead of Telegram's blue.
+                paint.setShader(new android.graphics.LinearGradient(0, 0, size, size, new int[]{0xFF39C0FF, 0xFF2E86FF, 0xFF7A5CFF}, new float[]{0f, 0.55f, 1f}, android.graphics.Shader.TileMode.CLAMP));
                 Bitmap bm = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
                 Canvas c = new Canvas(bm);
                 c.drawCircle(size / 2f, size / 2f, size / 2f, paint);

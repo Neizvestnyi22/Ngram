@@ -1,0 +1,129 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.telegram.build-app-plugin'
+
+repositories {
+    mavenCentral()
+    google()
+}
+
+configurations {
+    compile.exclude module: 'support-v4'
+}
+
+configurations.all {
+    exclude group: 'com.google.firebase', module: 'firebase-core'
+    exclude group: 'androidx.recyclerview', module: 'recyclerview'
+}
+
+dependencies {
+    implementation project(':TMessagesProj')
+    // Markdown in the assistant's answers; the version Telegram's own module is built with.
+    implementation "io.noties.markwon:core:4.6.2"
+    // Telegram's list views are built on these classes; the versions its own module uses.
+    implementation 'androidx.core:core:1.16.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+}
+
+// `-Pabi=arm64-v8a` (or a comma-separated list) builds for those CPU architectures only.
+def onlyAbis = project.hasProperty('abi') ? project.property('abi').toString().split(',').toList() : null
+
+def localProp(String name) {
+    def file = rootProject.file('local.properties')
+    if (!file.exists()) {
+        return ''
+    }
+    def props = new Properties()
+    file.withInputStream { props.load(it) }
+    return props.getProperty(name, '')
+}
+
+android {
+    compileSdkVersion 36
+    buildToolsVersion '36.0.0'
+
+    namespace 'org.ngram.messenger'
+
+    defaultConfig {
+        applicationId APP_PACKAGE
+        minSdkVersion 26
+        targetSdkVersion 36
+        // The code keeps the numbering of the Telegram release underneath: the app reads the
+        // last digit as the kind of build and the rest as the build number.
+        versionCode Integer.parseInt(APP_VERSION_CODE) * 10 + 9
+        versionName NGRAM_VERSION_NAME
+
+        multiDexEnabled true
+        vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
+
+        ndk {
+            abiFilters(*(onlyAbis ?: ['arm64-v8a', 'armeabi-v7a', 'x86_64']))
+        }
+
+        buildConfigField "String", "TELEGRAM_VERSION", "\"" + APP_VERSION_NAME + "\""
+
+        // Google Maps shows nothing without a key issued for this package: put yours into
+        // local.properties as maps.apiKey.
+        manifestPlaceholders = [mapsApiKey: localProp('maps.apiKey')]
+    }
+
+    lintOptions {
+        disable 'MissingTranslation'
+        disable 'ExtraTranslation'
+        disable 'BlockedPrivateApi'
+        checkReleaseBuilds false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+
+        coreLibraryDesugaringEnabled true
+    }
+
+    androidResources {
+        noCompress += "pack"
+        localeFilters += ["zz"]
+    }
+
+    signingConfigs {
+        // Signed with this machine's debug key, as every Ngram build so far, so a new build
+        // installs over the previous one. Replace with your own keystore before publishing.
+        ngram {
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            jniDebuggable true
+            signingConfig signingConfigs.ngram
+            minifyEnabled false
+            shrinkResources false
+            multiDexEnabled true
+        }
+
+        release {
+            debuggable false
+            jniDebuggable false
+            signingConfig signingConfigs.ngram
+            minifyEnabled true
+            shrinkResources true
+            multiDexEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../TMessagesProj/proguard-rules.pro', 'proguard-rules.pro'
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            outputFileName = "ngram-${variant.buildType.name}.apk"
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+}

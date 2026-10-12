@@ -117,12 +117,19 @@ android {
     buildToolsVersion '36.0.0'
     ndkVersion "27.2.12479018"
 
-    sourceSets.main.jniLibs.srcDirs = ['./jni/']
+    // Ngram: the native library is built once per architecture with -PbuildNative and its
+    // stripped copy is kept in jniLibs/ (see NGRAM_BUILD.md). Everyday builds package that copy
+    // and never start CMake.
+    if (project.hasProperty('buildNative')) {
+        sourceSets.main.jniLibs.srcDirs = ['./jni/']
 
-    externalNativeBuild {
-        cmake {
-            path 'jni/CMakeLists.txt'
+        externalNativeBuild {
+            cmake {
+                path 'jni/CMakeLists.txt'
+            }
         }
+    } else {
+        sourceSets.main.jniLibs.srcDirs = ['./jniLibs/']
     }
 
     lintOptions {
@@ -146,6 +153,17 @@ android {
         vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
 
         multiDexEnabled true
+
+        // Ngram: the Telegram API credentials live in local.properties and never in sources.
+        buildConfigField "int", "APP_ID", getProps("telegram.apiId") ?: "0"
+        buildConfigField "String", "APP_HASH", "\"" + (getProps("telegram.apiHash") ?: "") + "\""
+        buildConfigField "String", "NGRAM_VERSION", "\"" + NGRAM_VERSION_NAME + "\""
+
+        if (project.hasProperty('abi')) {
+            ndk {
+                abiFilters(*project.property('abi').toString().split(','))
+            }
+        }
 
         externalNativeBuild {
             cmake {
@@ -250,7 +268,7 @@ def getProps(String propName) {
         return "";
     }
 }
-apply plugin: 'com.google.gms.google-services'
+// Ngram: no google-services plugin - the app does not use Telegram's Firebase project.
 
 task checkVisibility {
     doFirst {
