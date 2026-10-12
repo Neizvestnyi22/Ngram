@@ -8,6 +8,7 @@
 
 package org.telegram.ui;
 
+import org.ngram.core.NgramConfig;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.dpf2;
 import static org.telegram.messenger.AndroidUtilities.lerp;
@@ -4763,7 +4764,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         });
 
         if (!isArchive() && initialDialogsType == DIALOGS_TYPE_DEFAULT) {
-            if (MessagesController.getInstance(currentAccount).getMainSettings().getBoolean("storyhint", true)) {
+            if (NgramConfig.storyButton && MessagesController.getInstance(currentAccount).getMainSettings().getBoolean("storyhint", true)) {
                 storyHint = new HintView2(context, HintView2.DIRECTION_RIGHT)
                         .setRounding(8)
                         .setDuration(8_000)
@@ -8849,7 +8850,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             floatingButton3.setButtonVisible(isVisible, animated);
         }
         if (floatingButtonStories != null) {
-            floatingButtonStories.setButtonVisible(isVisible, animated);
+            // Ngram: the story camera button can be switched off in Ngram's Look settings.
+            floatingButtonStories.setButtonVisible(isVisible && NgramConfig.storyButton, animated);
         }
     }
 

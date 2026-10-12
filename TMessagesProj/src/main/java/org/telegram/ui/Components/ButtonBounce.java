@@ -1,6 +1,8 @@
 package org.telegram.ui.Components;
 
 
+import org.ngram.core.NgramConfig;
+import org.ngram.core.NgramMotion;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
@@ -83,8 +85,10 @@ public class ButtonBounce {
                 animator.setDuration((long) (60 * durationPressMultiplier));
                 animator.setStartDelay(0);
             } else {
-                animator.setInterpolator(new OvershootInterpolator(overshoot));
-                animator.setDuration((long) (350 * durationReleaseMultiplier));
+                // Ngram: buttons drawn by hand wobble on release as well when jelly is on.
+                final boolean jelly = NgramConfig.pressMotion == NgramConfig.MOTION_JELLY;
+                animator.setInterpolator(jelly ? NgramMotion.WOBBLE : new OvershootInterpolator(overshoot));
+                animator.setDuration((long) ((jelly ? 560 : 350) * durationReleaseMultiplier));
                 animator.setStartDelay(releaseDelay);
             }
             animator.start();

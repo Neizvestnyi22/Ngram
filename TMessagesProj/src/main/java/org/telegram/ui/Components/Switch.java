@@ -8,6 +8,7 @@
 
 package org.telegram.ui.Components;
 
+import org.ngram.core.NgramConfig;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
@@ -371,9 +372,37 @@ public class Switch extends View {
         invalidate();
     }
 
+    private Paint capsuleThumbPaint;
+
+    private void drawCapsule(Canvas canvas) {
+        final float trackW = AndroidUtilities.dpf2(36), trackH = AndroidUtilities.dpf2(20);
+        final float thumbW = AndroidUtilities.dpf2(22), thumbH = AndroidUtilities.dpf2(16), inset = AndroidUtilities.dpf2(2);
+        final float left = (getMeasuredWidth() - trackW) / 2f, top = (getMeasuredHeight() - trackH) / 2f;
+
+        final int off = processColor(Theme.getColor(trackColorKey, resourcesProvider));
+        final int on = Theme.isCurrentThemeDark() ? 0xFF30D158 : 0xFF34C759;
+        paint.setColor(androidx.core.graphics.ColorUtils.blendARGB(off, on, progress));
+        rectF.set(left, top, left + trackW, top + trackH);
+        canvas.drawRoundRect(rectF, trackH / 2f, trackH / 2f, paint);
+
+        if (capsuleThumbPaint == null) {
+            capsuleThumbPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            capsuleThumbPaint.setColor(0xFFFFFFFF);
+            capsuleThumbPaint.setShadowLayer(AndroidUtilities.dpf2(1.5f), 0, AndroidUtilities.dpf2(0.75f), 0x33000000);
+        }
+        final float tx = left + inset + (trackW - thumbW - inset * 2) * progress;
+        rectF.set(tx, top + inset, tx + thumbW, top + inset + thumbH);
+        canvas.drawRoundRect(rectF, thumbH / 2f, thumbH / 2f, capsuleThumbPaint);
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         if (getVisibility() != VISIBLE) {
+            return;
+        }
+        // Ngram: the wide capsule switch of iOS for the plain case (no lock icon, no colour sweep).
+        if (NgramConfig.iosSwitch && overrideColorProgress == 0 && iconDrawable == null && drawIconType == 0 && iconAnimator == null) {
+            drawCapsule(canvas);
             return;
         }
 

@@ -1,5 +1,6 @@
 package org.telegram.ui.Components.blur3.drawable;
 
+import org.ngram.core.NgramConfig;
 import static org.telegram.messenger.AndroidUtilities.dpf2;
 
 import android.graphics.Bitmap;
@@ -220,10 +221,10 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
     public void updateColors() {
         if (colorProvider == null) return;
 
-        backgroundColor = colorProvider.getBackgroundColor();
+        backgroundColor = NgramConfig.tint(colorProvider.getBackgroundColor());
         shadowColor = colorProvider.getShadowColor();
-        strokeColorTop = colorProvider.getStrokeColorTop();
-        strokeColorBottom = colorProvider.getStrokeColorBottom();
+        strokeColorTop = NgramConfig.rim(colorProvider.getStrokeColorTop());
+        strokeColorBottom = NgramConfig.rim(colorProvider.getStrokeColorBottom());
     }
 
 

@@ -1,5 +1,6 @@
 package org.telegram.ui.Components;
 
+import org.ngram.core.NgramMotion;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.StateListAnimator;
@@ -14,6 +15,10 @@ public class ScaleStateListAnimator {
 
     public static void apply(View view, float scale, float tension) {
         if (view == null) {
+            return;
+        }
+        // Ngram: jelly or glass press, unless the user asked for Telegram's plain one.
+        if (NgramMotion.apply(view)) {
             return;
         }
 
