@@ -34,6 +34,7 @@ public class AiChatFragment extends NgramFragment implements AiTalk.Listener {
     private static final int NEW = 4;
     private static final int SETTINGS = 5;
     private static final int COPY_LAST = 6;
+    private static final int TALKS = 7;
 
     private final IdentityHashMap<AiTalk.Message, TextView> views = new IdentityHashMap<>();
     /** Opened from the settings screen: its row there would only lead back and forth. */
@@ -113,8 +114,12 @@ public class AiChatFragment extends NgramFragment implements AiTalk.Listener {
             if (!messages.isEmpty()) {
                 items.add(UItem.asButton(COPY_LAST, R.drawable.msg_copy, tr("Скопировать последний ответ", "Copy the Last Answer")));
                 items.add(UItem.asButton(RETRY, R.drawable.msg_retry, tr("Ответить заново", "Answer Again")));
-                items.add(UItem.asButton(NEW, R.drawable.msg_clear, tr("Новый разговор", "New Conversation")));
+                items.add(UItem.asButton(NEW, R.drawable.msg_add, tr("Новый разговор", "New Conversation")));
             }
+        }
+        final int saved = AiTalk.all().size();
+        if (!generating && saved > (messages.isEmpty() ? 0 : 1)) {
+            items.add(UItem.asButton(TALKS, R.drawable.msg_list, tr("Разговоры", "Conversations"), String.valueOf(saved)));
         }
         if (!fromSettings) {
             items.add(UItem.asButton(SETTINGS, R.drawable.msg_settings, tr("Настройки ассистента", "Assistant Settings"),
@@ -143,7 +148,10 @@ public class AiChatFragment extends NgramFragment implements AiTalk.Listener {
                 break;
             case NEW:
                 views.clear();
-                AiTalk.clear();
+                AiTalk.startNew();
+                break;
+            case TALKS:
+                presentFragment(new AiTalksFragment());
                 break;
             case SETTINGS:
                 presentFragment(new AiSettingsFragment());

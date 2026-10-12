@@ -1,8 +1,10 @@
 package org.ngram.core;
 
 import org.telegram.messenger.MessageObject;
+import org.telegram.messenger.SendMessagesHelper;
 import org.telegram.ui.ChatActivity;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 
 import org.telegram.tgnet.TLObject;
@@ -67,7 +69,36 @@ public final class NgramHooks {
 
         /** Ngram's entry in the header menu was chosen. */
         void onChatMenu(ChatActivity chat);
+
+        /** The entry Ngram adds to the menu of a profile, or null for none. */
+        CharSequence profileMenuTitle(BaseFragment profile);
+
+        /** Ngram's entry in the menu of a profile was chosen; the id is negative for a chat. */
+        void onProfileMenu(BaseFragment profile, long dialogId, long topicId);
+
+        /** A message was tapped twice and the user has picked something other than a reaction. */
+        void onDoubleTap(ChatActivity chat, MessageObject message);
+
+        /**
+         * Something is about to happen that the user asked to be asked about first (one of the
+         * CONFIRM_ constants). Runs {@code action} once they agree.
+         */
+        void confirm(Context context, int kind, CharSequence subject, Runnable action);
+
+        /**
+         * A message is about to be handed to the sending code. Returns the parameters to send
+         * with (the same object, possibly changed) or null to send nothing.
+         */
+        SendMessagesHelper.SendMessageParams onSendMessage(int account, SendMessagesHelper.SendMessageParams params);
     }
+
+    public static final int CONFIRM_CALL = 1;
+    public static final int CONFIRM_VIDEO_CALL = 2;
+    public static final int CONFIRM_STICKER = 3;
+    public static final int CONFIRM_GIF = 4;
+
+    /** Id of Ngram's entry in the menu of a profile. */
+    public static final int PROFILE_MENU_ID = 9200;
 
     /** Ids of Ngram's entries in the menu of a message start here. */
     public static final int MESSAGE_OPTION_BASE = 9000;
@@ -249,6 +280,69 @@ public final class NgramHooks {
             } catch (Throwable e) {
                 report(e);
             }
+        }
+    }
+
+    public static CharSequence profileMenuTitle(BaseFragment profile) {
+        final Host h = host;
+        if (h == null) {
+            return null;
+        }
+        try {
+            return h.profileMenuTitle(profile);
+        } catch (Throwable e) {
+            report(e);
+            return null;
+        }
+    }
+
+    public static void onProfileMenu(BaseFragment profile, long dialogId, long topicId) {
+        final Host h = host;
+        if (h != null) {
+            try {
+                h.onProfileMenu(profile, dialogId, topicId);
+            } catch (Throwable e) {
+                report(e);
+            }
+        }
+    }
+
+    public static void onDoubleTap(ChatActivity chat, MessageObject message) {
+        final Host h = host;
+        if (h != null && message != null) {
+            try {
+                h.onDoubleTap(chat, message);
+            } catch (Throwable e) {
+                report(e);
+            }
+        }
+    }
+
+    /** With no host, or when asking fails, the action simply runs: nothing is ever lost. */
+    public static void confirm(Context context, int kind, CharSequence subject, Runnable action) {
+        final Host h = host;
+        if (h == null || context == null) {
+            action.run();
+            return;
+        }
+        try {
+            h.confirm(context, kind, subject, action);
+        } catch (Throwable e) {
+            report(e);
+            action.run();
+        }
+    }
+
+    public static SendMessagesHelper.SendMessageParams onSendMessage(int account, SendMessagesHelper.SendMessageParams params) {
+        final Host h = host;
+        if (h == null || params == null) {
+            return params;
+        }
+        try {
+            return h.onSendMessage(account, params);
+        } catch (Throwable e) {
+            report(e);
+            return params;
         }
     }
 

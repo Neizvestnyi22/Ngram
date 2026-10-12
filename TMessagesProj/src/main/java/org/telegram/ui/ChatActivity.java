@@ -8,6 +8,7 @@
 
 package org.telegram.ui;
 
+import org.ngram.core.NgramConfig;
 import org.ngram.core.NgramHooks;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.lerp;
@@ -1890,6 +1891,13 @@ public class ChatActivity extends BaseFragment implements
         @Override
         public boolean hasDoubleTap(View view, int position) {
             if (isQuickRepliesOrWelcomeMessagesMode()) return false;
+            if (NgramConfig.doubleTap != NgramConfig.TAP_REACTION) { // Ngram: the user's own double-tap action
+                if (NgramConfig.doubleTap == NgramConfig.TAP_NONE || !(view instanceof ChatMessageCell)) {
+                    return false;
+                }
+                final MessageObject tapped = ((ChatMessageCell) view).getPrimaryMessageObject();
+                return tapped != null && !tapped.isDateObject && !tapped.isSponsored() && !tapped.isSending() && !actionBar.isActionModeShowed() && !isInScheduleMode();
+            }
             String reactionStringSetting = getMediaDataController().getDoubleTapReaction();
             TLRPC.TL_availableReaction reaction = getMediaDataController().getReactionsMap().get(reactionStringSetting);
             if (reaction == null && (reactionStringSetting == null || !reactionStringSetting.startsWith("animated_"))) {
@@ -1915,6 +1923,12 @@ public class ChatActivity extends BaseFragment implements
 
         @Override
         public void onDoubleTap(View view, int position, float x, float y) {
+            if (NgramConfig.doubleTap != NgramConfig.TAP_REACTION) { // Ngram: the user's own double-tap action
+                if (getParentActivity() != null && !isInPreviewMode() && view instanceof ChatMessageCell) {
+                    NgramHooks.onDoubleTap(ChatActivity.this, ((ChatMessageCell) view).getPrimaryMessageObject());
+                }
+                return;
+            }
             if (getParentActivity() == null || isSecretChat() || isInScheduleMode() || isInPreviewMode() || isQuickRepliesOrWelcomeMessagesMode()) {
                 return;
             }
@@ -6673,7 +6687,7 @@ public class ChatActivity extends BaseFragment implements
                 if (!foundTopView) {
                     scrolled = super.scrollVerticallyBy(dy, recycler, state);
                 }
-                final boolean allowPullingDownScroll = !isInPollAddOptionMode() && !hasSelectedMessages();
+                final boolean allowPullingDownScroll = !isInPollAddOptionMode() && !hasSelectedMessages() && NgramConfig.pullNext; // Ngram
                 if (allowPullingDownScroll && dy > 0 && scrolled == 0 && (ChatObject.isChannel(currentChat) && !currentChat.megagroup || isTopic && !UserObject.isBotForum(currentUser)) && chatMode != MODE_SAVED && chatMode != MODE_WELCOME_MESSAGES && chatMode != MODE_SCHEDULED && chatListView.getScrollState() == RecyclerView.SCROLL_STATE_DRAGGING && !chatListView.isFastScrollAnimationRunning() && !chatListView.isMultiselect() && !isReport()) {
                     if (pullingDownOffset == 0 && pullingDownDrawable != null) {
                         if (nextChannels != null && !nextChannels.isEmpty()) {
@@ -6778,6 +6792,9 @@ public class ChatActivity extends BaseFragment implements
 
             @Override
             public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING && NgramConfig.hideKeyboardOnScroll && chatActivityEnterView != null && chatActivityEnterView.isKeyboardVisible()) { // Ngram
+                    chatActivityEnterView.closeKeyboard();
+                }
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     if (pollHintCell != null) {
                         pollHintView.showForMessageCell(pollHintCell, -1, pollHintX, pollHintY, true);
@@ -33314,6 +33331,16 @@ public class ChatActivity extends BaseFragment implements
             }
         }
         MediaController.saveFile(path, getParentActivity(), messageObject.isVideo() ? 1 : 0, null, null);
+    }
+
+    /** Ngram: runs a standard message-menu action on a message, as if it was picked from its menu. */
+    public void ngramRunOption(MessageObject message, int option) {
+        if (message == null || getParentActivity() == null) {
+            return;
+        }
+        selectedObject = message;
+        selectedObjectGroup = getValidGroupedMessage(message);
+        processSelectedOption(option);
     }
 
     private void processSelectedOption(int option) {

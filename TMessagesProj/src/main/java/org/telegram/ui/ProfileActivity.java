@@ -8,6 +8,8 @@
 
 package org.telegram.ui;
 
+import org.ngram.core.NgramHooks;
+import org.ngram.core.NgramConfig;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.dpf2;
 import static org.telegram.messenger.AndroidUtilities.ilerp;
@@ -2541,6 +2543,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             @Override
             public void onItemClick(final int id) {
                 if (getParentActivity() == null) {
+                    return;
+                }
+                if (id == NgramHooks.PROFILE_MENU_ID) { // Ngram
+                    NgramHooks.onProfileMenu(ProfileActivity.this, userId != 0 ? userId : -chatId, topicId);
                     return;
                 }
                 if (id == -1) {
@@ -12319,6 +12325,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
         }
 
+        final CharSequence ngramProfileEntry = NgramHooks.profileMenuTitle(this); // Ngram: its own entry in the menu of a profile
+        if (ngramProfileEntry != null) {
+            otherItem.addSubItem(NgramHooks.PROFILE_MENU_ID, R.drawable.msg_info, ngramProfileEntry);
+        }
+
         if (imageUpdater != null) {
             otherItem.addSubItem(set_as_main, R.drawable.msg_openprofile, LocaleController.getString(R.string.SetAsMain));
             otherItem.addSubItem(gallery_menu_save, R.drawable.msg_gallery, LocaleController.getString(R.string.SaveToGallery));
@@ -13492,6 +13503,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             phoneNumber = vcardPhone;
                         } else if (user != null && !TextUtils.isEmpty(user.phone)) {
                             text = PhoneFormat.getInstance().format("+" + user.phone);
+                            if (UserObject.isUserSelf(user)) { // Ngram
+                                text = NgramConfig.ownPhone(text);
+                            }
                             phoneNumber = user.phone;
                         } else {
                             text = LocaleController.getString(R.string.PhoneHidden);
@@ -13585,7 +13599,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         TLRPC.User user = UserConfig.getInstance(currentAccount).getCurrentUser();
                         String value;
                         if (user != null && user.phone != null && user.phone.length() != 0) {
-                            value = PhoneFormat.getInstance().format("+" + user.phone);
+                            value = NgramConfig.ownPhone(PhoneFormat.getInstance().format("+" + user.phone)); // Ngram
                         } else {
                             value = LocaleController.getString(R.string.NumberUnknown);
                         }

@@ -8,6 +8,7 @@
 
 package org.telegram.messenger;
 
+import org.ngram.core.NgramConfig;
 import org.ngram.core.NgramHooks;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.formatWholeNumber;
@@ -2857,6 +2858,12 @@ public class LocaleController {
     }
 
     public static String formatShortNumber(int number, int[] rounded) {
+        if (NgramConfig.exactNumbers) { // Ngram: the whole number instead of "1.2K"
+            if (rounded != null) {
+                rounded[0] = number;
+            }
+            return NgramConfig.whole(number);
+        }
         StringBuilder K = new StringBuilder();
         int lastDec = 0;
         int KCount = 0;

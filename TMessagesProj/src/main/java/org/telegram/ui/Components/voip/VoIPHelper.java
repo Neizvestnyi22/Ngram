@@ -69,11 +69,24 @@ import java.util.Set;
 
 public class VoIPHelper {
 
+	private static boolean ngramCallConfirmed; // Ngram: set while a call the user has just agreed to is being started
+
 	public static long lastCallTime = 0;
 
 	private static final int VOIP_SUPPORT_ID = 4244000;
 
 	public static void startCall(TLRPC.User user, boolean videoCall, boolean canVideoCall, final Activity activity, TLRPC.UserFull userFull, AccountInstance accountInstance) {
+		if (org.ngram.core.NgramConfig.confirmCall && !ngramCallConfirmed && activity != null && user != null) { // Ngram: ask before calling
+			org.ngram.core.NgramHooks.confirm(activity, videoCall ? org.ngram.core.NgramHooks.CONFIRM_VIDEO_CALL : org.ngram.core.NgramHooks.CONFIRM_CALL, org.telegram.messenger.UserObject.getUserName(user), () -> {
+				ngramCallConfirmed = true;
+				try {
+					startCall(user, videoCall, canVideoCall, activity, userFull, accountInstance);
+				} finally {
+					ngramCallConfirmed = false;
+				}
+			});
+			return;
+		}
 		if (accountInstance == null ? MessagesController.getInstance(UserConfig.selectedAccount).isFrozen() : accountInstance.getMessagesController().isFrozen()) {
 			AccountFrozenAlert.show(accountInstance == null ? UserConfig.selectedAccount : accountInstance.getCurrentAccount());
 			return;

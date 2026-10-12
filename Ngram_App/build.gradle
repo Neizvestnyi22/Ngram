@@ -1,5 +1,7 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.telegram.build-app-plugin'
+// Plugins are written in Python, as in exteraGram.
+apply plugin: 'com.chaquo.python'
 
 repositories {
     mavenCentral()
@@ -21,7 +23,21 @@ dependencies {
     implementation "io.noties.markwon:core:4.6.2"
     // Telegram's list views are built on these classes; the versions its own module uses.
     implementation 'androidx.core:core:1.16.0'
+    // The main activity is a FragmentActivity; the compiler needs the class to resolve calls to it.
+    implementation 'androidx.fragment:fragment:1.2.0'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+}
+
+// Python 3.11 is the version exteraGram plugins target, and the newest one that still runs on
+// 32-bit ARM phones. Plugin sources are loaded from files at run time, so nothing of ours
+// needs precompiling.
+chaquopy {
+    defaultConfig {
+        version = "3.11"
+        pyc {
+            src = false
+        }
+    }
 }
 
 // `-Pabi=arm64-v8a` (or a comma-separated list) builds for those CPU architectures only.
@@ -48,8 +64,9 @@ android {
         minSdkVersion 26
         targetSdkVersion 36
         // The code keeps the numbering of the Telegram release underneath: the app reads the
-        // last digit as the kind of build and the rest as the build number.
-        versionCode Integer.parseInt(APP_VERSION_CODE) * 10 + 9
+        // last digit as the kind of build and the rest as the build number. Ngram's own
+        // release number sits in between, so every Ngram release installs over the previous.
+        versionCode((Integer.parseInt(APP_VERSION_CODE) * 100 + Integer.parseInt(NGRAM_VERSION_CODE)) * 10 + 9)
         versionName NGRAM_VERSION_NAME
 
         multiDexEnabled true

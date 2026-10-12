@@ -8,6 +8,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -333,6 +335,58 @@ public final class AiClient {
         return new JSONArray()
             .put(new JSONObject().put("type", "image").put("source", new JSONObject().put("type", "base64").put("media_type", "image/jpeg").put("data", t.imageBase64)))
             .put(new JSONObject().put("type", "text").put("text", t.text.isEmpty() ? "?" : t.text));
+    }
+
+    /** The speech model asked for when the user has not named one. */
+    public static final String DEFAULT_STT = "whisper-1";
+    private static final long MAX_AUDIO_BYTES = 24L * 1024 * 1024;
+
+    /**
+     * Turns a recording into text through the provider's speech endpoint: the OpenAI
+     * "audio/transcriptions" call, which Groq and other compatible services also offer.
+     */
+    public static String transcribe(Ai.Provider p, File audio, String fileName, Call call) throws AiException {
+        if (p.api == Ai.API_ANTHROPIC) {
+            throw new AiException(tr("Этот провайдер не распознаёт речь. Подойдут OpenAI, Groq и совместимые с ними.",
+                "This provider does not transcribe speech. OpenAI, Groq and services compatible with them do."));
+        }
+        if (audio == null || !audio.exists() || audio.length() == 0) {
+            throw new AiException(tr("Запись ещё не загружена", "The recording is not downloaded yet"));
+        }
+        if (audio.length() > MAX_AUDIO_BYTES) {
+            throw new AiException(tr("Запись слишком большая для распознавания", "The recording is too large to transcribe"));
+        }
+        final String model = p.sttModel.trim().isEmpty() ? DEFAULT_STT : p.sttModel.trim();
+        HttpURLConnection conn = null;
+        try {
+            conn = open(p, "/audio/transcriptions", true, call);
+            final String boundary = "ngram" + Long.toHexString(System.nanoTime());
+            final byte[] head = ("--" + boundary + "\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n" + model + "\r\n"
+                + "--" + boundary + "\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\njson\r\n"
+                + "--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
+                + "Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8);
+            final byte[] tail = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            conn.setFixedLengthStreamingMode(head.length + audio.length() + tail.length);
+            try (OutputStream os = conn.getOutputStream(); InputStream in = new FileInputStream(audio)) {
+                os.write(head);
+                final byte[] buffer = new byte[16384];
+                int read;
+                while ((read = in.read(buffer)) > 0) {
+                    os.write(buffer, 0, read);
+                }
+                os.write(tail);
+            }
+            failIfError(conn);
+            return new JSONObject(readAll(conn.getInputStream())).optString("text", "").trim();
+        } catch (Throwable e) {
+            throw explain(e, call);
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
     }
 
     /**

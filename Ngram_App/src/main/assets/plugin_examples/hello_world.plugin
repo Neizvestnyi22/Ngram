@@ -1,0 +1,59 @@
+"""Первый плагин: пункт в меню сообщения, команда и настройка.
+
+Что здесь показано:
+  - пункт «Сказать привет» в меню сообщения (нажмите на любое сообщение);
+  - команда .hello - напишите в чате «.hello Маша» и отправьте;
+  - настройка, которую видно на странице плагина.
+"""
+
+from typing import Any, List
+
+from base_plugin import BasePlugin, MenuItemData, MenuItemType
+from ui.bulletin import BulletinHelper
+from ui.settings import Header, Input, Switch, Divider
+
+__id__ = "hello_world"
+__name__ = "Привет, мир"
+__description__ = "Пример: пункт «Сказать привет» в меню сообщения и команда .hello"
+__author__ = "Ngram"
+__version__ = "1.1.0"
+__min_version__ = "3.1"
+
+
+class HelloPlugin(BasePlugin):
+    def on_plugin_load(self):
+        # Вызывается один раз, когда плагин включают или приложение запускается с ним.
+        self.add_menu_item(MenuItemData(
+            menu_type=MenuItemType.MESSAGE_CONTEXT_MENU,
+            text="Сказать привет",
+            icon="msg_info",
+            on_click=self._on_menu,
+        ))
+        self.add_command(".hello", self._on_command, "отправить приветствие")
+        self.log("Плагин загружен")
+
+    def _greeting(self) -> str:
+        return str(self.get_setting("greeting", "Привет"))
+
+    def _on_menu(self, context: dict):
+        # context - словарь: message (MessageObject приложения), dialog_id, fragment, account...
+        message = context.get("message")
+        text = ""
+        if message is not None and message.messageOwner is not None:
+            text = message.messageOwner.message or ""
+        if self.get_setting("count", True):
+            BulletinHelper.show_info("%s! В этом сообщении знаков: %d." % (self._greeting(), len(text)))
+        else:
+            BulletinHelper.show_info(self._greeting() + "!")
+
+    def _on_command(self, args: str, params: Any):
+        # Что вернули - то и уйдёт в чат вместо текста команды.
+        return "%s, %s!" % (self._greeting(), args or "мир")
+
+    def create_settings(self) -> List[Any]:
+        return [
+            Header(text="Приветствие"),
+            Input(key="greeting", text="Слово приветствия", default="Привет"),
+            Switch(key="count", text="Считать знаки в сообщении", default=True),
+            Divider(text="Слово используется и в меню сообщения, и в команде .hello"),
+        ]

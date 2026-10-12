@@ -8,6 +8,8 @@
 
 package org.telegram.ui.Components;
 
+import org.ngram.core.NgramHooks;
+import org.ngram.core.NgramConfig;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.dpf2;
 import static org.telegram.messenger.AndroidUtilities.lerp;
@@ -3136,6 +3138,17 @@ public class ChatActivityEnterView extends FrameLayout implements
                             } else if (!sendVoiceEnabled) {
                                 delegate.needShowMediaBanHint();
                             } else {
+                                if (NgramConfig.voicePreview && !isInScheduleMode() && !AlertsCreator.needsPaidMessageAlert(currentAccount, dialog_id)) { // Ngram: letting go stops into the preview instead of sending
+                                    if (sendButtonVisible) {
+                                        calledRecordRunnable = true;
+                                    }
+                                    MediaController.getInstance().toggleRecordingPause(voiceOnce);
+                                    delegate.needStartRecordAudio(0);
+                                    if (slideText != null) {
+                                        slideText.setEnabled(false);
+                                    }
+                                    return true;
+                                }
                                 if (AlertsCreator.needsPaidMessageAlert(currentAccount, dialog_id)) {
                                     if (sendButtonVisible) {
                                         calledRecordRunnable = true;
@@ -12237,6 +12250,17 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
 
             public void onGifSelected(View view, Object gif, String query, Object parent, boolean notify, int scheduleDate, int scheduleRepeatPeriod, MediaController.PhotoEntry entry, boolean invertMedia) {
+                if (NgramConfig.confirmGif && !ngramSendConfirmed && parentActivity != null) { // Ngram: ask before sending a GIF
+                    NgramHooks.confirm(parentActivity, NgramHooks.CONFIRM_GIF, null, () -> {
+                        ngramSendConfirmed = true;
+                        try {
+                            onGifSelected(view, gif, query, parent, notify, scheduleDate, scheduleRepeatPeriod, entry, invertMedia);
+                        } finally {
+                            ngramSendConfirmed = false;
+                        }
+                    });
+                    return;
+                }
                 if (replyingQuote != null && parentFragment != null && replyingQuote.outdated) {
                     parentFragment.showQuoteMessageUpdate();
                     return;
@@ -12582,9 +12606,22 @@ public class ChatActivityEnterView extends FrameLayout implements
         checkChannelRights();
     }
 
+    private boolean ngramSendConfirmed; // Ngram: set while a send the user has just agreed to goes through
+
     @Override
     public void onStickerSelected(TLRPC.Document sticker, String query, Object parent, MessageObject.SendAnimationData sendAnimationData, boolean clearsInputField, boolean notify, int scheduleDate, int scheduleRepeatPeriod) {
         if (isLiveComment) return;
+        if (NgramConfig.confirmSticker && !ngramSendConfirmed && parentActivity != null) { // Ngram: ask before sending a sticker
+            NgramHooks.confirm(parentActivity, NgramHooks.CONFIRM_STICKER, null, () -> {
+                ngramSendConfirmed = true;
+                try {
+                    onStickerSelected(sticker, query, parent, sendAnimationData, clearsInputField, notify, scheduleDate, scheduleRepeatPeriod);
+                } finally {
+                    ngramSendConfirmed = false;
+                }
+            });
+            return;
+        }
         if (replyingQuote != null && parentFragment != null && replyingQuote.outdated) {
             parentFragment.showQuoteMessageUpdate();
             return;

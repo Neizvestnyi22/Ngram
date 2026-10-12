@@ -31,6 +31,7 @@ public class AiProviderFragment extends NgramFragment {
     private static final int LOAD_MODELS = 7;
     private static final int USE = 8;
     private static final int REMOVE = 9;
+    private static final int STT_MODEL = 10;
 
     private final String providerId;
     private boolean loading;
@@ -95,6 +96,14 @@ public class AiProviderFragment extends NgramFragment {
                  "The list is requested from the provider with your key. A model name can also be typed in.")
             : tr("Моделей в списке: ", "Models in the list: ") + p.models.size()));
 
+        if (p.api == Ai.API_OPENAI) {
+            items.add(UItem.asHeader(tr("Распознавание речи", "Speech to Text")));
+            items.add(UItem.asButton(STT_MODEL, tr("Модель для речи", "Speech Model"), p.sttModel.isEmpty() ? AiClient.DEFAULT_STT : p.sttModel));
+            items.add(UItem.asShadow(tr(
+                "Нужна для расшифровки голосовых сообщений. У OpenAI это whisper-1, у Groq — whisper-large-v3. Запись отправляется этому провайдеру только когда вы сами выбираете «Расшифровать».",
+                "Used to transcribe voice messages. OpenAI calls it whisper-1, Groq whisper-large-v3. A recording is sent to this provider only when you choose Transcribe yourself.")));
+        }
+
         final Ai.Provider active = Ai.active();
         if (active != p) {
             items.add(UItem.asButton(USE, R.drawable.msg_select, tr("Использовать этого провайдера", "Use This Provider")).accent());
@@ -146,6 +155,13 @@ public class AiProviderFragment extends NgramFragment {
                 break;
             case LOAD_MODELS:
                 loadModels(p, false);
+                break;
+            case STT_MODEL:
+                Prompt.show(this, tr("Модель для речи", "Speech Model"), tr("Оставьте пустым для ", "Leave it empty for ") + AiClient.DEFAULT_STT + ".",
+                    AiClient.DEFAULT_STT, p.sttModel, Prompt.EXACT, text -> {
+                        p.sttModel = text;
+                        changed();
+                    });
                 break;
             case USE:
                 Ai.activeId = p.id;

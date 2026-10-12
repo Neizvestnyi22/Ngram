@@ -1,0 +1,63 @@
+"""Текстовые инструменты: автозамены при отправке и три команды.
+
+    .upper текст   - ОТПРАВИТЬ ЗАГЛАВНЫМИ
+    .lower текст   - отправить строчными
+    .mock текст    - оТпРаВиТь ВоТ тАк
+
+Показывает самый короткий способ делать команды - add_command.
+"""
+
+from typing import Any, List
+
+from base_plugin import BasePlugin, HookResult, HookStrategy
+from ui.settings import Header, Switch, EditText, Divider
+
+__id__ = "text_tools"
+__name__ = "Текстовые инструменты"
+__description__ = "Автозамены и команды .upper, .lower, .mock"
+__author__ = "Ngram"
+__version__ = "1.0.0"
+__min_version__ = "3.1"
+
+DEFAULT_PAIRS = "-> = →\n<- = ←\n(c) = ©\n(tm) = ™\n... = …"
+
+
+class TextToolsPlugin(BasePlugin):
+    def on_plugin_load(self):
+        # Обработчик команды получает текст после команды и возвращает то, что нужно отправить.
+        self.add_command(".upper", lambda args, params: args.upper() or None, "отправить заглавными")
+        self.add_command(".lower", lambda args, params: args.lower() or None, "отправить строчными")
+        self.add_command(".mock", self._mock, "оТпРаВиТь ВоТ тАк")
+        self.add_on_send_message_hook()
+
+    def _mock(self, args, params):
+        if not args:
+            return None  # нечего отправлять: команда просто исчезнет
+        return "".join(ch.upper() if i % 2 else ch.lower() for i, ch in enumerate(args))
+
+    def create_settings(self) -> List[Any]:
+        return [
+            Header(text="Автозамены"),
+            Switch(key="enabled", text="Заменять при отправке", default=True),
+            EditText(key="pairs", hint="Пары замен", default=DEFAULT_PAIRS, multiline=True),
+            Divider(text="По одной паре в строке: «что = на что»."),
+        ]
+
+    def _pairs(self):
+        pairs = []
+        for line in str(self.get_setting("pairs", DEFAULT_PAIRS)).splitlines():
+            left, sep, right = line.partition("=")
+            if sep and left.strip():
+                pairs.append((left.strip(), right.strip()))
+        return pairs
+
+    def on_send_message_hook(self, account: int, params: Any) -> HookResult:
+        if not self.get_setting("enabled", True):
+            return HookResult()
+        text = params.message
+        for old, new in self._pairs():
+            text = text.replace(old, new)
+        if text == params.message:
+            return HookResult()
+        params.message = text
+        return HookResult(strategy=HookStrategy.MODIFY, params=params)

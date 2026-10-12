@@ -4256,7 +4256,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         });
     }
 
-    public void sendMessage(SendMessageParams sendMessageParams) {
+    public void sendMessage(SendMessageParams ngramParams) {
+        // Ngram: plugins may change an outgoing message or keep it from being sent.
+        SendMessageParams sendMessageParams = org.ngram.core.NgramHooks.onSendMessage(currentAccount, ngramParams);
+        if (sendMessageParams == null) {
+            return;
+        }
         final SendMessageChatArguments sendMessageChatArguments = sendMessageParams.sendMessageChatArguments != null ?
                 sendMessageParams.sendMessageChatArguments : SendMessageChatArguments.EMPTY;
         String message = sendMessageParams.message;

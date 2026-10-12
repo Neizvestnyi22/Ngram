@@ -41,6 +41,20 @@ public final class AiSheet {
      *                 tap, and the tapped one goes to {@code useText}
      */
     public static void run(BaseFragment fragment, String title, String prompt, Utilities.Callback<String> useText, boolean pickLine) {
+        runJob(fragment, title, listener -> AiTasks.run(prompt, null, listener), useText, pickLine);
+    }
+
+    /** The same sheet for a prompt that comes with a picture (JPEG, Base64). */
+    public static void runWithImage(BaseFragment fragment, String title, String prompt, String imageBase64) {
+        runJob(fragment, title, listener -> AiTasks.run(prompt, imageBase64, listener), null, false);
+    }
+
+    /** Starts a job of the assistant and hands it the listener that writes into the sheet. */
+    public interface Starter {
+        AiTasks.Job start(AiTasks.Listener listener);
+    }
+
+    public static void runJob(BaseFragment fragment, String title, Starter starter, Utilities.Callback<String> useText, boolean pickLine) {
         final Context context = fragment.getContext();
         if (context == null) {
             return;
@@ -96,7 +110,7 @@ public final class AiSheet {
         sheet.setCustomView(column);
 
         final String[] result = {""};
-        final AiTasks.Job job = AiTasks.run(prompt, null, new AiTasks.Listener() {
+        final AiTasks.Job job = starter.start(new AiTasks.Listener() {
             @Override
             public void onText(String text) {
                 result[0] = text;

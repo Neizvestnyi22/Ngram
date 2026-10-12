@@ -3,6 +3,8 @@ package org.ngram.messenger.ui;
 import android.content.Context;
 import android.view.View;
 
+import org.telegram.messenger.AndroidUtilities;
+import org.telegram.ui.ActionBar.INavigationLayout;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalFragment;
 
@@ -11,6 +13,12 @@ import org.telegram.ui.Components.UniversalFragment;
  * settings screens are (rounded sections, a header that blends into the list, edge to edge).
  */
 public abstract class NgramFragment extends UniversalFragment {
+
+    /**
+     * A setting was changed that screens read only while they are built (glass, the size of
+     * stickers, the tab bar): the screens under this one are rebuilt once it is closed.
+     */
+    protected boolean rebuildOnLeave;
 
     @Override
     public View createView(Context context) {
@@ -42,6 +50,33 @@ public abstract class NgramFragment extends UniversalFragment {
     protected void refresh() {
         if (listView != null && listView.adapter != null) {
             listView.adapter.update(true);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Coming back from a screen opened from this one: its values may be shown here.
+        refresh();
+    }
+
+    @Override
+    public void onFragmentDestroy() {
+        final INavigationLayout layout = getParentLayout();
+        super.onFragmentDestroy();
+        if (rebuildOnLeave) {
+            // After this screen is gone: the ones under it are built again with the new values.
+            AndroidUtilities.runOnUIThread(() -> rebuildScreens(layout), 250);
+        }
+    }
+
+    protected void rebuildScreens(INavigationLayout layout) {
+        rebuildOnLeave = false;
+        if (layout != null) {
+            try {
+                layout.rebuildFragments(INavigationLayout.REBUILD_FLAG_REBUILD_LAST);
+            } catch (Throwable ignore) {
+            }
         }
     }
 }

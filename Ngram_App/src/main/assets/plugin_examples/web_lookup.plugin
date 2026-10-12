@@ -1,0 +1,38 @@
+"""Запрос в интернет: команда .zen присылает в чат случайный афоризм с api.github.com.
+
+Показывает главное правило сети: запрос идёт в фоне (get_async), а в чат
+результат отправляется уже из обработчика ответа.
+"""
+
+import http_utils
+from base_plugin import BasePlugin
+from ui.bulletin import BulletinHelper
+from client_utils import send_text
+
+__id__ = "web_lookup"
+__name__ = "Запрос в интернет"
+__description__ = "Команда .zen: афоризм из сети прямо в чат"
+__author__ = "Ngram"
+__version__ = "1.0.0"
+__min_version__ = "3.1"
+
+
+class WebLookupPlugin(BasePlugin):
+    def on_plugin_load(self):
+        self.add_command(".zen", self._zen, "прислать случайный афоризм")
+
+    def _zen(self, args, params):
+        chat_id = int(params.peer)
+
+        def done(response, error):
+            # Этот обработчик вызывается в потоке интерфейса, когда пришёл ответ.
+            if error is not None:
+                BulletinHelper.show_error("Нет связи: %s" % error)
+            elif not response.ok:
+                BulletinHelper.show_error("Сервер ответил кодом %d" % response.status)
+            else:
+                send_text(chat_id, "🧘 " + response.text.strip())
+
+        BulletinHelper.show_info("Спрашиваю…")
+        http_utils.get_async("https://api.github.com/zen", done, timeout=10)
+        return None  # сама команда «.zen» в чат не отправляется

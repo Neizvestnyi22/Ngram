@@ -6,6 +6,7 @@ import org.ngram.messenger.N;
 import org.telegram.messenger.AndroidUtilities;
 
 import java.util.ArrayList;
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
 
@@ -110,6 +111,51 @@ public final class AiTasks {
             return job;
         }
         return stream(provider, toolSystemPrompt(), Collections.singletonList(new AiClient.Turn(false, prompt, imageBase64)), listener);
+    }
+
+    /** Turns a recording into text with the active provider; the listener gets the result once. */
+    public static Job transcribe(File audio, String fileName, Listener listener) {
+        final Job job = new Job();
+        final Ai.Provider provider = Ai.active();
+        if (provider == null || provider.baseUrl.trim().isEmpty()) {
+            job.finished = true;
+            AndroidUtilities.runOnUIThread(() -> listener.onDone("", tr("Подключите провайдера в настройках ИИ", "Connect a provider in AI settings")));
+            return job;
+        }
+        new Thread(() -> {
+            String text = "";
+            String error = null;
+            try {
+                text = AiClient.transcribe(provider, audio, fileName, job.call);
+                if (text.isEmpty()) {
+                    error = tr("Речь не распознана", "No speech was recognised");
+                }
+            } catch (AiClient.AiException e) {
+                error = e.getMessage() == null ? "" : e.getMessage();
+            } catch (Throwable e) {
+                error = String.valueOf(e.getMessage());
+            }
+            final String result = text;
+            final String failure = error;
+            AndroidUtilities.runOnUIThread(() -> {
+                job.finished = true;
+                listener.onDone(result, failure);
+            });
+        }, "ngram-ai-stt").start();
+        return job;
+    }
+
+    public static String describeImage() {
+        return "Describe what is in this picture, briefly and to the point. Answer in " + langName() + ".";
+    }
+
+    public static String readImage() {
+        return "Write out all the text that is visible in this picture, exactly as it is written, keeping the line breaks. "
+            + "If there is no text, say so in " + langName() + ".";
+    }
+
+    public static String askImage(String question) {
+        return "Look at this picture and answer the question in " + langName() + ".\n\nQuestion: " + question;
     }
 
     public static String explain(String text) {

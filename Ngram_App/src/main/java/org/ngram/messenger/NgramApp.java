@@ -22,6 +22,8 @@ public class NgramApp extends ApplicationLoader {
         NgramConfig.init();
         keepConnectionInBackground();
         Legacy.cleanUpOnce(this);
+        org.ngram.messenger.features.Diagnostics.install(this);
+        org.ngram.messenger.Share.cleanOld();
     }
 
     @Override

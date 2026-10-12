@@ -281,6 +281,94 @@ public final class Ai {
             .apply();
     }
 
+    /** The assistant's settings and providers for a backup file. Keys are left out on purpose. */
+    public static synchronized JSONObject exportSettings() throws Exception {
+        prefs();
+        final JSONObject root = new JSONObject();
+        root.put("systemPrompt", systemPrompt);
+        root.put("temperature", (double) temperature);
+        root.put("maxTokens", maxTokens);
+        root.put("contextSize", contextSize);
+        root.put("inChat", inChat);
+        final JSONArray list = new JSONArray();
+        for (Provider p : providers) {
+            list.put(new JSONObject()
+                .put("name", p.name)
+                .put("api", p.api == API_ANTHROPIC ? "anthropic" : "openai")
+                .put("baseUrl", p.baseUrl.trim())
+                .put("model", p.model.trim())
+                .put("stt", p.sttModel.trim())
+                .put("active", p.id.equals(activeId)));
+        }
+        root.put("providers", list);
+        return root;
+    }
+
+    /**
+     * Takes the assistant's settings from a backup. Providers that are not here yet are added
+     * without a key; the ones already here keep their key and get the model from the file.
+     * Returns how many settings and providers were taken.
+     */
+    public static synchronized int importSettings(JSONObject root) {
+        prefs();
+        int applied = 0;
+        if (root.has("systemPrompt")) {
+            systemPrompt = root.optString("systemPrompt", "");
+            applied++;
+        }
+        if (root.has("temperature")) {
+            temperature = (float) root.optDouble("temperature", -1);
+            applied++;
+        }
+        if (root.has("maxTokens")) {
+            maxTokens = Math.max(64, Math.min(200000, root.optInt("maxTokens", 4096)));
+            applied++;
+        }
+        if (root.has("contextSize")) {
+            contextSize = Math.max(10, Math.min(1000, root.optInt("contextSize", 100)));
+            applied++;
+        }
+        if (root.has("inChat")) {
+            inChat = root.optBoolean("inChat", true);
+            applied++;
+        }
+        final JSONArray list = root.optJSONArray("providers");
+        if (list != null) {
+            for (int i = 0; i < list.length() && i < 40; i++) {
+                final JSONObject o = list.optJSONObject(i);
+                if (o == null) {
+                    continue;
+                }
+                final String baseUrl = o.optString("baseUrl", "").trim();
+                if (baseUrl.isEmpty()) {
+                    continue;
+                }
+                Provider target = null;
+                for (Provider p : providers) {
+                    if (p.baseUrl.trim().equalsIgnoreCase(baseUrl)) {
+                        target = p;
+                        break;
+                    }
+                }
+                if (target == null) {
+                    target = new Provider(UUID.randomUUID().toString());
+                    target.baseUrl = baseUrl;
+                    target.name = o.optString("name", "");
+                    target.api = "anthropic".equals(o.optString("api")) ? API_ANTHROPIC : API_OPENAI;
+                    providers.add(target);
+                }
+                target.model = o.optString("model", target.model);
+                target.sttModel = o.optString("stt", target.sttModel);
+                if (o.optBoolean("active") || providers.size() == 1) {
+                    activeId = target.id;
+                }
+                applied++;
+            }
+        }
+        save();
+        return applied;
+    }
+
     /**
      * Keeps API keys encrypted with a key that never leaves the Android Keystore, so a copy of
      * the preferences file alone is not enough to read them.

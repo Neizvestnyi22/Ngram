@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ngram: background of one of its own app icons. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="linear"
+        android:angle="315"
+        android:startColor="#FF39C0FF"
+        android:centerColor="#FF2E86FF"
+        android:endColor="#FF7A5CFF" />
+</shape>

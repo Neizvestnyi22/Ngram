@@ -4079,6 +4079,9 @@ public class AndroidUtilities {
         if (v == 0) {
             return "0";
         }
+        if (org.ngram.core.NgramConfig.exactNumbers) { // Ngram: the whole number instead of "1.2K"
+            return org.ngram.core.NgramConfig.whole(v);
+        }
         float num_ = v;
         int count = 0;
         if (dif == 0) dif = v;
