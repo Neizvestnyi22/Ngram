@@ -1,5 +1,6 @@
 package org.telegram.ui;
 
+import org.ngram.core.NgramHooks;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.lerp;
 import static org.telegram.messenger.AndroidUtilities.replaceSingleTag;
@@ -697,6 +698,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         items.add(UItem.asShadow(null));
 
+        // Ngram: its own section (look, assistant, plugins).
+        if (NgramHooks.installed()) {
+            NgramHooks.fillSettings(items);
+            items.add(UItem.asShadow(null));
+        }
+
         if (!getMessagesController().premiumFeaturesBlocked()) {
             items.add(SettingCell.Factory.of(11, 0xFFB659FF, 0xFF617CFF, R.drawable.settings_premium, getString(R.string.TelegramPremium)));
         }
@@ -809,6 +816,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             if (item.object != null) {
                 search.addRecent(item.object);
             }
+            return;
+        }
+        final BaseFragment ngramScreen = NgramHooks.openSettings(item.id);
+        if (ngramScreen != null) {
+            presentSettingFragment(ngramScreen);
             return;
         }
         switch (item.id) {

@@ -1,5 +1,7 @@
 package org.telegram.tgnet;
 
+import org.ngram.core.NgramConfig;
+import org.ngram.core.NgramHooks;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -379,14 +381,32 @@ public class ConnectionsManager extends BaseController {
 
     public int sendRequestSync(final TLObject object, final RequestDelegate onComplete, final QuickAckDelegate onQuickAck, final WriteToSocketDelegate onWriteToSocket, final int flags, final int datacenterId, final int connectionType, final boolean immediate) {
         final int requestToken = lastRequestToken.getAndIncrement();
-        sendRequestInternal(object, onComplete, null, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
+        // Ngram: plugins may replace or drop a request; the debug demo account never reaches the network.
+        final NgramHooks.LocalReply reply = NgramHooks.installed() ? new NgramHooks.LocalReply() : null;
+        final TLObject request = NgramHooks.onRequest(currentAccount, object, flags, reply);
+        if (request != null) {
+            sendRequestInternal(request, onComplete, null, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
+        } else if (reply != null && reply.given() && onComplete != null) {
+            onComplete.run(reply.response, reply.error);
+        }
         return requestToken;
     }
 
     public int sendRequest(final TLObject object, final RequestDelegate onComplete, final RequestDelegateTimestamp onCompleteTimestamp, final QuickAckDelegate onQuickAck, final WriteToSocketDelegate onWriteToSocket, final int flags, final int datacenterId, final int connectionType, final boolean immediate) {
         final int requestToken = lastRequestToken.getAndIncrement();
         Utilities.stageQueue.postRunnable(() -> {
-            sendRequestInternal(object, onComplete, onCompleteTimestamp, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
+            // Ngram: see sendRequestSync.
+            final NgramHooks.LocalReply reply = NgramHooks.installed() ? new NgramHooks.LocalReply() : null;
+            final TLObject request = NgramHooks.onRequest(currentAccount, object, flags, reply);
+            if (request != null) {
+                sendRequestInternal(request, onComplete, onCompleteTimestamp, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
+            } else if (reply != null && reply.given()) {
+                if (onComplete != null) {
+                    onComplete.run(reply.response, reply.error);
+                } else if (onCompleteTimestamp != null) {
+                    onCompleteTimestamp.run(reply.response, reply.error, System.currentTimeMillis());
+                }
+            }
         });
         return requestToken;
     }
@@ -457,6 +477,7 @@ public class ConnectionsManager extends BaseController {
                     final TLObject finalResponse = resp;
                     final TLRPC.TL_error finalError = error;
                     Utilities.stageQueue.postRunnable(() -> {
+                        NgramHooks.onResponse(currentAccount, object, finalResponse, finalError);
                         if (onComplete != null) {
                             onComplete.run(finalResponse, finalError);
                         } else if (onCompleteTimestamp != null) {
@@ -614,7 +635,9 @@ public class ConnectionsManager extends BaseController {
     }
 
     public void setUserId(long id) {
-        native_setUserId(currentAccount, id);
+        // Ngram: the network layer registers a signed-in user with Telegram on its own. The
+        // debug demo account exists only on the device, so it is never announced.
+        native_setUserId(currentAccount, NgramConfig.demo ? 0 : id);
     }
 
     public void checkConnection() {
@@ -673,7 +696,7 @@ public class ConnectionsManager extends BaseController {
             packageId = "";
         }
 
-        native_init(currentAccount, version, layer, apiId, deviceModel, systemVersion, appVersion, langCode, systemLangCode, configPath, logPath, regId, cFingerprint, installer, packageId, timezoneOffset, userId, userPremium, enablePushConnection, ApplicationLoader.isNetworkOnline(), ApplicationLoader.getCurrentNetworkType(), SharedConfig.measureDevicePerformanceClass());
+        native_init(currentAccount, version, layer, apiId, deviceModel, systemVersion, appVersion, langCode, systemLangCode, configPath, logPath, regId, cFingerprint, installer, packageId, timezoneOffset, NgramConfig.demo ? 0 : userId, userPremium, enablePushConnection, ApplicationLoader.isNetworkOnline(), ApplicationLoader.getCurrentNetworkType(), SharedConfig.measureDevicePerformanceClass());
         checkConnection();
     }
 

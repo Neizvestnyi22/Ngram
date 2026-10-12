@@ -8,6 +8,7 @@
 
 package org.telegram.messenger;
 
+import org.ngram.core.NgramHooks;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.formatWholeNumber;
 
@@ -4444,6 +4445,12 @@ public class LocaleController {
     private String getStringV2(String key, @StringRes int stringRes, String fallback) {
         final Context context = ApplicationLoader.applicationContext;
         String value;
+
+        // Ngram: its own name and a few of its own texts never come from Telegram's language pack.
+        final String ngram = NgramHooks.string(stringRes, key);
+        if (ngram != null) {
+            return ngram;
+        }
 
         if (BuildVars.USE_CLOUD_STRINGS) {
             value = localizationExternal.getByResNameOrResId(context, key, stringRes);

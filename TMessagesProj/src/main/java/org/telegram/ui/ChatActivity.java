@@ -8,6 +8,7 @@
 
 package org.telegram.ui;
 
+import org.ngram.core.NgramHooks;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.lerp;
 import static org.telegram.messenger.LocaleController.formatPluralStringComma;
@@ -3960,6 +3961,8 @@ public class ChatActivity extends BaseFragment implements
                     getSendMessagesHelper().sendMessage(SendMessagesHelper.SendMessageParams.of("/settings", dialog_id, null, null, null, false, null, null, null, true, 0, 0, null, false));
                 } else if (id == search) {
                     openSearchWithText(isSupportedTags() ? "" : null);
+                } else if (id == NgramHooks.CHAT_MENU_ID) {
+                    NgramHooks.onChatMenu(ChatActivity.this);
                 } else if (id == translate) {
                     getMessagesController().getTranslateController().setHideTranslateDialog(getDialogId(), false, true);
                     if (!getMessagesController().getTranslateController().toggleTranslatingDialog(getDialogId(), true)) {
@@ -4417,6 +4420,11 @@ public class ChatActivity extends BaseFragment implements
             }
             translateItem = headerItem.lazilyAddSubItem(translate, R.drawable.msg_translate, LocaleController.getString(R.string.TranslateMessage));
             updateTranslateItemVisibility();
+            // Ngram: the assistant's entry (summary of the chat, questions about it).
+            final CharSequence ngramMenuTitle = NgramHooks.chatMenuTitle(this);
+            if (ngramMenuTitle != null) {
+                headerItem.lazilyAddSubItem(NgramHooks.CHAT_MENU_ID, R.drawable.msg_bot, ngramMenuTitle);
+            }
             if (currentChat != null && !currentChat.creator && !ChatObject.hasAdminRights(currentChat)) {
                 headerItem.lazilyAddSubItem(report, R.drawable.msg_report, LocaleController.getString(R.string.ReportChat));
             }
@@ -33312,6 +33320,13 @@ public class ChatActivity extends BaseFragment implements
         if (selectedObject == null || getParentActivity() == null) {
             return;
         }
+        if (NgramHooks.onMessageMenu(this, option, selectedObject)) {
+            selectedObject = null;
+            selectedObjectGroup = null;
+            selectedObjectToEditCaption = null;
+            closeMenu(true);
+            return;
+        }
         boolean preserveDim = false;
         switch (option) {
             case OPTION_RETRY: {
@@ -45830,6 +45845,8 @@ public class ChatActivity extends BaseFragment implements
                     options.add(OPTION_TRANSLATE);
                     icons.add(R.drawable.msg_translate);
                 }
+                // Ngram: the assistant's actions on a message.
+                NgramHooks.fillMessageMenu(this, message, icons, items, options);
                 if (message.canEditMessage(currentChat) && message.type != MessageObject.TYPE_POLL || chatMode == MODE_WELCOME_MESSAGES) {
                     items.add(LocaleController.getString(R.string.Edit));
                     options.add(OPTION_EDIT);
@@ -46177,6 +46194,8 @@ public class ChatActivity extends BaseFragment implements
                     options.add(OPTION_TRANSLATE);
                     icons.add(R.drawable.msg_translate);
                 }
+                // Ngram: the assistant's actions on a message.
+                NgramHooks.fillMessageMenu(this, message, icons, items, options);
                 if (allowEdit || chatMode == MODE_WELCOME_MESSAGES) {
                     items.add(LocaleController.getString(R.string.Edit));
                     options.add(OPTION_EDIT);

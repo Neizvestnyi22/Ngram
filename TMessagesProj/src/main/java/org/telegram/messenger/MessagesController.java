@@ -8,6 +8,7 @@
 
 package org.telegram.messenger;
 
+import org.ngram.core.NgramHooks;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.getString;
 import static org.telegram.messenger.NotificationsController.TYPE_CHANNEL;
@@ -17854,6 +17855,7 @@ public class MessagesController extends BaseController implements NotificationCe
 
     // must be run from Utilities.stageQueue
     public void processUpdates(final TLRPC.Updates updates, boolean fromQueue) {
+        NgramHooks.onUpdates(currentAccount, updates);
         ArrayList<Long> needGetChannelsDiff = null;
         boolean needGetDiff = false;
         boolean needReceivedQueue = false;

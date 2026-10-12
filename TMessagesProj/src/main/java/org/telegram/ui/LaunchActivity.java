@@ -8,6 +8,7 @@
 
 package org.telegram.ui;
 
+import org.ngram.core.NgramHooks;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.formatPluralString;
 import static org.telegram.messenger.LocaleController.formatString;
@@ -407,6 +408,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
         instance = this;
         ApplicationLoader.postInitApplication();
+        NgramHooks.onLaunch(this, getIntent());
         AndroidUtilities.checkDisplaySize(this, getResources().getConfiguration());
         currentAccount = UserConfig.selectedAccount;
         registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
@@ -6122,6 +6124,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     @Override
     public void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (NgramHooks.onIntent(this, intent)) {
+            return;
+        }
         handleIntent(intent, true, false, false, null, true, true);
     }
 
