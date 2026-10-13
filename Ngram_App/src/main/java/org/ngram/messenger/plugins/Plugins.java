@@ -71,6 +71,16 @@ public final class Plugins {
         public boolean loaded;
         /** Why it could not be loaded, or why it was switched off; empty when all is well. */
         public String error = "";
+        /** "kit" for a plugin written with Ngram's own kit, "class" for the exteraGram kind. */
+        public String kind = "class";
+        /** What the author says the plugin needs, in the author's words (a kit passport's @needs). */
+        public String needs = "";
+        /** Python packages it asks for, and where a newer version of the file may be found. */
+        public String requires = "", update = "";
+        /** What its code is able to do, found by reading it: network, app, send, watch, files, shell. */
+        public final ArrayList<String> uses = new ArrayList<>();
+        /** Packages it asks for that are not on the device yet. */
+        public final ArrayList<String> missing = new ArrayList<>();
     }
 
     public interface Done {
@@ -134,16 +144,70 @@ public final class Plugins {
     }
 
     private static final Pattern META = Pattern.compile("^__(id|name|description|author|version|icon)__\\s*=\\s*(\"\"\"|'''|\"|')(.*?)\\2\\s*$", Pattern.MULTILINE);
+    private static final Pattern PASSPORT = Pattern.compile("^#\\s*@([a-z_]+)\\s+(.*?)\\s*$");
 
-    /** The "__id__ = ..." constants at the top of a plugin file, read without running it. */
+    /** A kit plugin's passport: the "# @id hello" comment lines before its first line of code. */
+    private static void readPassport(String source, Info info) {
+        for (String line : source.split("\n")) {
+            final String s = line.trim();
+            if (s.isEmpty() || s.startsWith("#!")) {
+                continue;
+            }
+            if (!s.startsWith("#")) {
+                break;
+            }
+            final Matcher m = PASSPORT.matcher(s);
+            if (!m.matches()) {
+                continue;
+            }
+            final String value = m.group(2);
+            switch (m.group(1)) {
+                case "id":
+                    if (info.id.isEmpty()) {
+                        info.id = value;
+                    }
+                    break;
+                case "name":
+                    info.name = value;
+                    break;
+                case "about":
+                    info.description = value;
+                    break;
+                case "author":
+                    info.author = value;
+                    break;
+                case "version":
+                    info.version = value;
+                    break;
+                case "icon":
+                    info.icon = value;
+                    break;
+                case "needs":
+                    info.needs = value;
+                    break;
+                case "requires":
+                    info.requires = value;
+                    break;
+                case "update":
+                    info.update = value;
+                    break;
+            }
+        }
+        if (!info.id.isEmpty()) {
+            info.kind = "kit";
+        }
+    }
+
+    /** What a plugin file says about itself, read without running it. */
     private static Info readInfo(File file) {
         try {
             final String source = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
             final Info info = new Info();
             info.file = file;
             info.lines = source.split("\n", -1).length;
+            readPassport(source, info);
             final Matcher m = META.matcher(source);
-            while (m.find()) {
+            while (info.kind.equals("class") && m.find()) {
                 final String value = m.group(3);
                 switch (m.group(1)) {
                     case "id":
@@ -227,7 +291,7 @@ public final class Plugins {
     public static String summary() {
         final List<Info> list = all();
         if (list.isEmpty()) {
-            return tr("Расширения на Python", "Extensions in Python");
+            return tr("пока ни одного", "none yet");
         }
         int on = 0;
         for (Info p : list) {
@@ -416,7 +480,8 @@ public final class Plugins {
     private static String metaJson(Info p) {
         try {
             return new JSONObject().put("id", p.id).put("name", p.name).put("description", p.description)
-                .put("author", p.author).put("version", p.version).put("icon", p.icon).toString();
+                .put("author", p.author).put("version", p.version).put("icon", p.icon)
+                .put("kind", p.kind).put("requires", p.requires).toString();
         } catch (Throwable e) {
             return "{}";
         }
@@ -507,10 +572,19 @@ public final class Plugins {
             final Info info;
             try {
                 // Python parses the file without running it and checks that it is a plugin at all.
-                h.callAttr("read_metadata", source.getAbsolutePath());
+                final String found = h.callAttr("read_metadata", source.getAbsolutePath()).toString();
                 info = readInfo(source);
                 if (info == null) {
-                    throw new IllegalStateException("The plugin has no valid __id__");
+                    throw new IllegalStateException("The plugin has no valid id");
+                }
+                fillInspection(info, found);
+                if (!info.missing.isEmpty()) {
+                    // The user saw the list of packages and agreed before this was called.
+                    final String failed = h.callAttr("pip_install", info.requires).toString();
+                    if (!failed.isEmpty()) {
+                        throw new IllegalStateException(failed);
+                    }
+                    info.missing.clear();
                 }
             } catch (Throwable e) {
                 finish(done, reason(e));
@@ -548,6 +622,160 @@ public final class Plugins {
             log(info.id, "I", (old == null ? "Installed " : "Updated ") + info.name + " " + info.version);
             finish(done, null);
         });
+    }
+
+    private static void fillInspection(Info info, String json) {
+        try {
+            final JSONObject o = new JSONObject(json);
+            info.uses.clear();
+            info.missing.clear();
+            final JSONArray uses = o.optJSONArray("uses");
+            for (int i = 0; uses != null && i < uses.length(); i++) {
+                info.uses.add(uses.optString(i));
+            }
+            final JSONArray missing = o.optJSONArray("missing");
+            for (int i = 0; missing != null && i < missing.length(); i++) {
+                info.missing.add(missing.optString(i));
+            }
+        } catch (Throwable ignore) {
+        }
+    }
+
+    public interface Inspected {
+        void run(Info info, String error);
+    }
+
+    /**
+     * Reads a file that is about to be installed: who it says it is and what its code can do.
+     * Starts Python when it is not up yet; answers on the main thread.
+     */
+    public static void inspect(File source, Inspected done) {
+        queue().postRunnable(() -> {
+            start(false);
+            final PyObject h = host;
+            Info info = null;
+            String error = null;
+            if (h == null) {
+                error = startError.isEmpty() ? "Python did not start" : startError;
+            } else {
+                try {
+                    final String found = h.callAttr("read_metadata", source.getAbsolutePath()).toString();
+                    info = readInfo(source);
+                    if (info == null) {
+                        error = "The plugin has no valid id";
+                    } else {
+                        fillInspection(info, found);
+                    }
+                } catch (Throwable e) {
+                    error = reason(e);
+                }
+            }
+            final Info result = info;
+            final String failure = error;
+            AndroidUtilities.runOnUIThread(() -> done.run(failure == null ? result : null, failure));
+        });
+    }
+
+    /** Reads the plugin's file again and starts it afresh: for someone writing a plugin. */
+    public static void reload(Info p, Done done) {
+        queue().postRunnable(() -> {
+            start(false);
+            final PyObject h = host;
+            if (h == null) {
+                finish(done, startError);
+                return;
+            }
+            try {
+                h.callAttr("unload", p.id);
+            } catch (Throwable ignore) {
+            }
+            PluginMenus.removeAll(p.id);
+            final Info fresh = readInfo(p.file);
+            if (fresh == null || !fresh.id.equals(p.id)) {
+                p.loaded = false;
+                p.error = "The file no longer has the id " + p.id;
+                finish(done, p.error);
+                return;
+            }
+            p.name = fresh.name;
+            p.description = fresh.description;
+            p.author = fresh.author;
+            p.version = fresh.version;
+            p.kind = fresh.kind;
+            p.needs = fresh.needs;
+            p.requires = fresh.requires;
+            p.update = fresh.update;
+            p.lines = fresh.lines;
+            load(p);
+            if (p.loaded && !p.enabled) {
+                p.enabled = true;
+                saveEnabled();
+            }
+            finish(done, p.loaded ? null : p.error);
+        });
+    }
+
+    public interface Downloaded {
+        void run(File file, String error);
+    }
+
+    /** Fetches a plugin file from an https address into a temporary file; answers on the main thread. */
+    public static void download(String address, Downloaded done) {
+        new Thread(() -> {
+            File file = null;
+            String error = null;
+            java.net.HttpURLConnection connection = null;
+            try {
+                final java.net.URL url = new java.net.URL(address.trim());
+                if (!"https".equalsIgnoreCase(url.getProtocol())) {
+                    throw new IllegalArgumentException(tr("Нужна ссылка, которая начинается с https://", "The link has to start with https://"));
+                }
+                connection = (java.net.HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(20000);
+                connection.setRequestProperty("User-Agent", "Ngram/" + BuildConfig.VERSION_NAME);
+                final int code = connection.getResponseCode();
+                if (code != 200) {
+                    throw new IllegalStateException("HTTP " + code);
+                }
+                file = new File(ApplicationLoader.applicationContext.getCacheDir(), "downloaded.plugin");
+                final int limit = 2 * 1024 * 1024;
+                try (java.io.InputStream in = connection.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
+                    final byte[] buffer = new byte[16384];
+                    int total = 0, read;
+                    while ((read = in.read(buffer)) > 0) {
+                        total += read;
+                        if (total > limit) {
+                            throw new IllegalStateException(tr("Файл больше 2 МБ — это не похоже на плагин", "The file is over 2 MB: that does not look like a plugin"));
+                        }
+                        out.write(buffer, 0, read);
+                    }
+                }
+            } catch (Throwable e) {
+                error = reason(e);
+                file = null;
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+            final File result = file;
+            final String failure = error;
+            AndroidUtilities.runOnUIThread(() -> done.run(result, failure));
+        }, "ngram-plugin-download").start();
+    }
+
+    /** -1, 0 or 1 as version a is older than, the same as or newer than b ("1.10" is newer than "1.9"). */
+    public static int compareVersions(String a, String b) {
+        final String[] x = (a == null ? "" : a).split("[^0-9]+"), y = (b == null ? "" : b).split("[^0-9]+");
+        for (int i = 0; i < Math.max(x.length, y.length); i++) {
+            final long l = i < x.length && !x[i].isEmpty() ? Long.parseLong(x[i].length() > 9 ? x[i].substring(0, 9) : x[i]) : 0;
+            final long r = i < y.length && !y[i].isEmpty() ? Long.parseLong(y[i].length() > 9 ? y[i].substring(0, 9) : y[i]) : 0;
+            if (l != r) {
+                return l < r ? -1 : 1;
+            }
+        }
+        return 0;
     }
 
     public static void remove(Info p, Done done) {
@@ -731,17 +959,100 @@ public final class Plugins {
         }
     }
 
+    // ---- the app's own moments, for kit plugins -----------------------------------------
+
+    /** Names of the moments some plugin listens for; the others never cross into Python. */
+    private static volatile Set<String> events = Collections.emptySet();
+    /** Notifications of the app that are being passed on: name -> id in NotificationCenter. */
+    private static final java.util.HashMap<String, Integer> watched = new java.util.HashMap<>();
+    private static final org.telegram.messenger.NotificationCenter.NotificationCenterDelegate observer = (id, account, args) -> {
+        String name = null;
+        synchronized (watched) {
+            for (java.util.Map.Entry<String, Integer> e : watched.entrySet()) {
+                if (e.getValue() == id) {
+                    name = e.getKey();
+                    break;
+                }
+            }
+        }
+        if (name != null) {
+            emit("app:" + name, new String[]{"account", "args"}, new Object[]{account, args});
+        }
+    };
+
+    static void setEvents(String[] names) {
+        final HashSet<String> set = new HashSet<>();
+        if (names != null) {
+            Collections.addAll(set, names);
+        }
+        events = set;
+        AndroidUtilities.runOnUIThread(() -> {
+            // "app:didReceiveNewMessages" asks for one of the app's own notifications by the name of its field.
+            for (String name : set) {
+                if (!name.startsWith("app:")) {
+                    continue;
+                }
+                final String field = name.substring(4);
+                synchronized (watched) {
+                    if (watched.containsKey(field)) {
+                        continue;
+                    }
+                }
+                try {
+                    final int id = org.telegram.messenger.NotificationCenter.class.getField(field).getInt(null);
+                    synchronized (watched) {
+                        watched.put(field, id);
+                    }
+                    org.telegram.messenger.NotificationCenter.getInstance(org.telegram.messenger.UserConfig.selectedAccount).addObserver(observer, id);
+                    org.telegram.messenger.NotificationCenter.getGlobalInstance().addObserver(observer, id);
+                } catch (Throwable e) {
+                    log("", "W", "The app has no notification called " + field);
+                }
+            }
+        });
+    }
+
+    /** Tells kit plugins that something happened; true when one of them stopped it. */
+    public static boolean emit(String name, String[] keys, Object[] values) {
+        final PyObject h = host;
+        if (h == null || !events.contains(name)) {
+            return false;
+        }
+        try {
+            return h.callAttr("dispatch_event", name, keys, values).toBoolean();
+        } catch (Throwable e) {
+            log("", "E", name + ": " + reason(e));
+            return false;
+        }
+    }
+
     /** The app came to the front (true) or went to the background. */
     public static void onApp(boolean resumed) {
+        final PyObject h = host;
+        if (h == null) {
+            return;
+        }
+        try {
+            h.callAttr("app_event", resumed ? "RESUME" : "PAUSE");
+        } catch (Throwable e) {
+            log("", "E", "app event: " + reason(e));
+        }
     }
 
     /** A chat screen opened or closed for good. */
     public static void onChat(org.telegram.ui.ChatActivity chat, boolean opened) {
+        final String name = opened ? "chat.open" : "chat.close";
+        if (host != null && events.contains(name)) {
+            emit(name, new String[]{"chat_id", "account", "fragment"}, new Object[]{chat.getDialogId(), chat.getCurrentAccount(), chat});
+        }
     }
 
     /** A link is about to be opened: true when a plugin took it over. */
     public static boolean onOpenUrl(Context context, android.net.Uri uri) {
-        return false;
+        if (host == null || !events.contains("link.open")) {
+            return false;
+        }
+        return emit("link.open", new String[]{"url", "context"}, new Object[]{uri.toString(), context});
     }
 
     /** Runs a send that a plugin asked for, with the plugins' own send hooks out of the way. */

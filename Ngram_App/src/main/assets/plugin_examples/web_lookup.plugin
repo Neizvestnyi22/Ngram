@@ -1,38 +1,46 @@
-"""Запрос в интернет: команда .zen присылает в чат случайный афоризм с api.github.com.
+# @id          web_lookup
+# @name        Справка из сети
+# @version     2.0
+# @author      Ngram
+# @about       Команда .wiki — короткая справка из Википедии прямо в поле отправки
+# @needs       интернет (ru.wikipedia.org); отправлять сообщение, когда вы пишете команду
 
-Показывает главное правило сети: запрос идёт в фоне (get_async), а в чат
-результат отправляется уже из обработчика ответа.
+"""Сеть: запрос в фоне и ответ в чат.
+
+Обработчик команды ничего не возвращает — значит, сама команда не отправляется. Ответ из сети
+приходит позже, и плагин отправляет его сам через ``chats.send``.
 """
 
-import http_utils
-from base_plugin import BasePlugin
-from ui.bulletin import BulletinHelper
-from client_utils import send_text
+from urllib.parse import quote
 
-__id__ = "web_lookup"
-__name__ = "Запрос в интернет"
-__description__ = "Команда .zen: афоризм из сети прямо в чат"
-__author__ = "Ngram"
-__version__ = "1.0.0"
-__min_version__ = "3.1"
+from ngram import plugin, ui, chats, net, kit
+
+plugin.settings.define(
+    kit.Section("Справка из сети"),
+    kit.Choice("lang", "Язык Википедии", ["Русский", "English"], default=0),
+    kit.Switch("preview", "Сначала показать, потом отправлять", default=True),
+    kit.Note("Напишите «.wiki Байкал» и отправьте."),
+)
 
 
-class WebLookupPlugin(BasePlugin):
-    def on_plugin_load(self):
-        self.add_command(".zen", self._zen, "прислать случайный афоризм")
+@plugin.command(".wiki", help="короткая справка из Википедии")
+def wiki(cmd):
+    if not cmd.args:
+        ui.toast("Напишите, что искать: .wiki Байкал", kind="error")
+        return
+    chat_id = cmd.chat_id
+    host = ("ru", "en")[plugin.settings["lang"]] + ".wikipedia.org"
 
-    def _zen(self, args, params):
-        chat_id = int(params.peer)
+    def answered(response, error):
+        if error is not None or not response.ok:
+            ui.toast("Не нашлось: %s" % cmd.args, kind="error")
+            return
+        data = response.json()
+        text = "**%s**\n%s" % (data.get("title", cmd.args), data.get("extract", ""))
+        if plugin.settings["preview"]:
+            ui.alert(data.get("title", cmd.args), data.get("extract", ""), ok="Отправить", cancel="Закрыть",
+                     on_ok=lambda: chats.send(chat_id, text))
+        else:
+            chats.send(chat_id, text)
 
-        def done(response, error):
-            # Этот обработчик вызывается в потоке интерфейса, когда пришёл ответ.
-            if error is not None:
-                BulletinHelper.show_error("Нет связи: %s" % error)
-            elif not response.ok:
-                BulletinHelper.show_error("Сервер ответил кодом %d" % response.status)
-            else:
-                send_text(chat_id, "🧘 " + response.text.strip())
-
-        BulletinHelper.show_info("Спрашиваю…")
-        http_utils.get_async("https://api.github.com/zen", done, timeout=10)
-        return None  # сама команда «.zen» в чат не отправляется
+    net.get("https://%s/api/rest_v1/page/summary/%s" % (host, quote(cmd.args.replace(" ", "_"))), then=answered)

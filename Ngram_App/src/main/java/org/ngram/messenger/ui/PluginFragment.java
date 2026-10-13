@@ -26,6 +26,8 @@ public class PluginFragment extends NgramFragment {
     private static final int SHOW_ERROR = 2;
     private static final int RESET = 3;
     private static final int REMOVE = 4;
+    private static final int RELOAD = 5;
+    private static final int UPDATE = 6;
     private static final int FIRST_SETTING = 1000;
 
     private final String pluginId;
@@ -82,6 +84,7 @@ public class PluginFragment extends NgramFragment {
             if (!p.author.isEmpty()) {
                 items.add(UItem.asButton(0, tr("Автор", "Author"), p.author));
             }
+            items.add(UItem.asButton(0, tr("Написан на", "Written with"), p.kind.equals("kit") ? tr("наборе Ngram", "Ngram's kit") : "exteraGram SDK"));
             if (!p.error.isEmpty()) {
                 items.add(UItem.asButton(SHOW_ERROR, R.drawable.msg_info, tr("Показать ошибку", "Show the Error")).red());
             }
@@ -178,6 +181,25 @@ public class PluginFragment extends NgramFragment {
             if (about.optInt("timers") > 0) {
                 sb.append(tr("Таймеров: ", "Timers: ")).append(about.optInt("timers")).append('\n');
             }
+            final JSONArray exports = about.optJSONArray("exports");
+            if (exports != null && exports.length() > 0) {
+                sb.append(tr("Отдаёт другим плагинам: ", "Offers to other plugins: "));
+                for (int i = 0; i < exports.length(); i++) {
+                    sb.append(i == 0 ? "" : ", ").append(exports.optString(i));
+                }
+                sb.append('\n');
+            }
+            final int calls = about.optInt("calls");
+            if (calls > 0) {
+                // How much of the app's time the plugin takes: the honest way to tell a heavy one.
+                final double each = about.optDouble("ms", 0) / calls;
+                sb.append(tr("Вызовов: ", "Calls: ")).append(calls).append(tr(", в среднем ", ", on average "))
+                    .append(each < 10 ? String.format(java.util.Locale.US, "%.1f", each) : String.valueOf(Math.round(each))).append(tr(" мс", " ms"));
+                if (about.optInt("slow") > 0) {
+                    sb.append(tr(", медленных: ", ", slow ones: ")).append(about.optInt("slow"));
+                }
+                sb.append('\n');
+            }
             if (sb.length() > 0) {
                 items.add(UItem.asShadow(tr("Что добавляет плагин:\n", "What the plugin adds:\n") + sb.toString().trim()));
             }
@@ -185,8 +207,12 @@ public class PluginFragment extends NgramFragment {
 
         if (root) {
             if (p.loaded && rows.length() > 0) {
-                items.add(UItem.asButton(RESET, R.drawable.msg_retry, tr("Сбросить настройки плагина", "Reset the Plugin's Settings")));
+                items.add(UItem.asButton(RESET, R.drawable.msg_reset, tr("Сбросить настройки плагина", "Reset the Plugin's Settings")));
             }
+            if (!p.update.isEmpty()) {
+                items.add(UItem.asButton(UPDATE, R.drawable.msg_download, tr("Проверить обновление", "Check for an Update")));
+            }
+            items.add(UItem.asButton(RELOAD, R.drawable.msg_retry, tr("Перечитать файл и запустить заново", "Read the File Again and Restart")));
             items.add(UItem.asButton(REMOVE, R.drawable.msg_delete, tr("Удалить плагин", "Remove the Plugin")).red());
             items.add(UItem.asShadow(tr("Файл: ", "File: ") + p.file.getName() + tr(", строк: ", ", lines: ") + p.lines));
         }
@@ -224,6 +250,43 @@ public class PluginFragment extends NgramFragment {
                 Plugins.resetSettings(pluginId);
                 refresh();
                 break;
+            case RELOAD:
+                if (busy) {
+                    return;
+                }
+                busy = true;
+                refresh();
+                Plugins.reload(p, error -> {
+                    busy = false;
+                    refresh();
+                    if (error != null) {
+                        PluginsFragment.failed(this, tr("Плагин не запустился.", "The plugin did not start."), error);
+                    } else {
+                        org.telegram.ui.Components.BulletinFactory.of(this).createSimpleBulletin(R.raw.done, tr("Плагин перезапущен.", "The plugin was restarted.")).show();
+                    }
+                });
+                break;
+            case UPDATE: {
+                final AlertDialog progress = new AlertDialog(getContext(), AlertDialog.ALERT_TYPE_SPINNER);
+                progress.showDelayed(200);
+                Plugins.download(p.update, (file, error) -> {
+                    progress.dismiss();
+                    if (getContext() == null) {
+                        return;
+                    }
+                    final Plugins.Info found = file == null ? null : Plugins.peek(file);
+                    if (found == null || !found.id.equals(p.id)) {
+                        PluginsFragment.failed(this, tr("Не удалось проверить обновление.", "Could not check for an update."),
+                            error != null ? error : tr("По адресу обновления лежит не этот плагин.", "The update address holds a different plugin."));
+                    } else if (Plugins.compareVersions(found.version, p.version) <= 0) {
+                        org.telegram.ui.Components.BulletinFactory.of(this).createSimpleBulletin(R.raw.done,
+                            tr("У вас последняя версия: ", "You have the latest version: ") + p.version).show();
+                    } else {
+                        PluginsFragment.offerInstall(this, file);
+                    }
+                });
+                break;
+            }
             case REMOVE: {
                 final AlertDialog.Builder builder = new AlertDialog.Builder(getContext(), getResourceProvider());
                 builder.setTitle(tr("Удалить плагин?", "Remove the Plugin?"));

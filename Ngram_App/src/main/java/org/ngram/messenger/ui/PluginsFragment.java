@@ -37,6 +37,7 @@ public class PluginsFragment extends NgramFragment {
     private static final int LOG = 3;
     private static final int GUIDE_ROW = 4;
     private static final int LEAVE_SAFE = 5;
+    private static final int INSTALL_LINK = 6;
     private static final int FIRST = 100;
     private static final int FIRST_ACTION = 500;
     private static final int PICK_FILE = 9302;
@@ -85,18 +86,19 @@ public class PluginsFragment extends NgramFragment {
             for (int i = 0; i < shown.size(); i++) {
                 final Plugins.Info p = shown.get(i);
                 final String state = !p.error.isEmpty() ? tr("ошибка", "error") : p.enabled ? tr("включён", "on") : tr("выключен", "off");
-                items.add(UItem.asButton(FIRST + i, p.name, state));
+                items.add(UItem.asButton(FIRST + i, p.version.isEmpty() ? p.name : p.name + "  " + p.version, state));
             }
             items.add(UItem.asShadow(null));
         }
 
         items.add(UItem.asButton(INSTALL, R.drawable.msg_download, tr("Установить из файла", "Install from a File")).accent());
+        items.add(UItem.asButton(INSTALL_LINK, R.drawable.msg_link, tr("Установить по ссылке", "Install from a Link")));
         if (Plugins.examples().length > 0) {
             items.add(UItem.asButton(EXAMPLES, R.drawable.msg_add, tr("Примеры плагинов", "Example Plugins")));
         }
         items.add(UItem.asShadow(tr(
-            "Плагин — файл .plugin с программой на Python, которая добавляет в Ngram команды, пункты меню и свои настройки. Его также можно установить из чата: нажмите на сообщение с файлом → «Установить плагин».\n\nПлагин работает внутри приложения с его правами: он может читать то, что видит приложение, и отправлять сообщения от вашего имени. Ставьте только те плагины, авторам которых доверяете.",
-            "A plugin is a .plugin file with a Python program that adds commands, menu entries and settings of its own to Ngram. It can also be installed from a chat: tap the message with the file → Install Plugin.\n\nA plugin runs inside the app with the app's rights: it can read what the app sees and send messages as you. Install only plugins whose authors you trust.")));
+            "Плагин — файл .plugin с программой на Python, которая добавляет в Ngram команды, пункты меню, реакции на события и свои настройки. Его также можно установить из чата: нажмите на сообщение с файлом → «Установить плагин».\n\nПеред установкой Ngram читает файл и показывает, что его код умеет делать. Плагин работает внутри приложения с его правами, поэтому ставьте только те, авторам которых доверяете.",
+            "A plugin is a .plugin file with a Python program that adds commands, menu entries, reactions to events and settings of its own to Ngram. It can also be installed from a chat: tap the message with the file → Install Plugin.\n\nBefore installing, Ngram reads the file and shows what its code is able to do. A plugin runs inside the app with the app's rights, so install only those whose authors you trust.")));
 
         actions.clear();
         actions.addAll(PluginMenus.general());
@@ -115,8 +117,8 @@ public class PluginsFragment extends NgramFragment {
             : Plugins.startError().isEmpty() ? tr("Python запускается, когда включён хотя бы один плагин.", "Python starts once at least one plugin is switched on.")
             : tr("Движок не запустился: ", "The engine did not start: ") + Plugins.startError();
         items.add(UItem.asShadow(engine + "\n" + tr(
-            "Имена в SDK повторяют exteraGram. Плагины, которые заменяют методы приложения (hook_method), здесь не работают.",
-            "The SDK follows exteraGram's names. Plugins that replace the app's methods (hook_method) do not work here.")));
+            "Плагины пишутся на собственном наборе Ngram (пакет ngram). Плагины, написанные для exteraGram, тоже загружаются — кроме тех, что подменяют методы приложения (hook_method).",
+            "Plugins are written with Ngram's own kit (the ngram package). Plugins written for exteraGram load as well, except those that replace the app's methods (hook_method).")));
     }
 
     @Override
@@ -136,6 +138,28 @@ public class PluginsFragment extends NgramFragment {
                 break;
             case INSTALL:
                 pickFile();
+                break;
+            case INSTALL_LINK:
+                Prompt.show(this, tr("Установить по ссылке", "Install from a Link"),
+                    tr("Прямая ссылка на файл .plugin, начинается с https://", "A direct link to a .plugin file, starting with https://"),
+                    "https://", "", Prompt.EXACT, link -> {
+                        if (link.trim().isEmpty() || getContext() == null) {
+                            return;
+                        }
+                        final AlertDialog progress = new AlertDialog(getContext(), AlertDialog.ALERT_TYPE_SPINNER);
+                        progress.showDelayed(200);
+                        Plugins.download(link, (file, error) -> {
+                            progress.dismiss();
+                            if (getContext() == null) {
+                                return;
+                            }
+                            if (file == null) {
+                                failed(this, tr("Не удалось скачать файл.", "Could not download the file."), error);
+                            } else {
+                                offerInstall(this, file);
+                            }
+                        });
+                    });
                 break;
             case EXAMPLES:
                 chooseExample();
@@ -221,35 +245,32 @@ public class PluginsFragment extends NgramFragment {
 
     // ---- installing, from this screen or from a chat -----------------------------------
 
-    /** Shows what the file is and installs it once the user agrees. */
+    /** Reads the file, shows who wrote it and what its code can do, and installs it once the user agrees. */
     public static void offerInstall(BaseFragment fragment, File file) {
         if (fragment.getContext() == null) {
             return;
         }
         final AlertDialog progress = new AlertDialog(fragment.getContext(), AlertDialog.ALERT_TYPE_SPINNER);
         progress.showDelayed(300);
-        Plugins.ensureStarted(startError -> {
+        Plugins.inspect(file, (info, error) -> {
             progress.dismiss();
             if (fragment.getContext() == null) {
                 return;
             }
-            if (startError != null) {
-                failed(fragment, tr("Движок плагинов не запустился.", "The plugin engine did not start."), startError);
-                return;
-            }
-            final Plugins.Info info = Plugins.peek(file);
             if (info == null) {
-                failed(fragment, tr("Это не плагин.", "This is not a plugin."),
-                    tr("В файле нет строки __id__ = \"…\" с именем плагина.", "The file has no __id__ = \"…\" line naming the plugin."));
+                failed(fragment, tr("Это не плагин, или в нём ошибка.", "This is not a plugin, or it has a mistake in it."), error);
                 return;
             }
-            final boolean update = Plugins.find(info.id) != null;
+            final Plugins.Info old = Plugins.find(info.id);
             final AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getContext(), fragment.getResourceProvider());
-            builder.setTitle(update ? tr("Обновить плагин?", "Update the Plugin?") : tr("Установить плагин?", "Install the Plugin?"));
+            builder.setTitle(old != null ? tr("Обновить плагин?", "Update the Plugin?") : tr("Установить плагин?", "Install the Plugin?"));
             final StringBuilder text = new StringBuilder();
             text.append(info.name);
             if (!info.version.isEmpty()) {
                 text.append(" ").append(info.version);
+                if (old != null && !old.version.isEmpty() && !old.version.equals(info.version)) {
+                    text.append(tr(" (сейчас ", " (now ")).append(old.version).append(")");
+                }
             }
             if (!info.author.isEmpty()) {
                 text.append("\n").append(tr("Автор: ", "Author: ")).append(info.author);
@@ -257,18 +278,30 @@ public class PluginsFragment extends NgramFragment {
             if (!info.description.isEmpty()) {
                 text.append("\n\n").append(info.description);
             }
+            text.append("\n\n").append(tr("Что умеет его код (" + info.lines + " строк):", "What its code can do (" + info.lines + " lines):"));
+            text.append(abilities(info));
+            if (!info.needs.isEmpty()) {
+                text.append("\n\n").append(tr("Автор пишет, что плагину нужно: ", "The author says the plugin needs: ")).append(info.needs);
+            }
+            if (!info.missing.isEmpty()) {
+                text.append("\n\n").append(tr("Будут скачаны с pypi.org пакеты Python: ", "These Python packages will be downloaded from pypi.org: "))
+                    .append(android.text.TextUtils.join(", ", info.missing)).append(tr(". Это чужой код, как и сам плагин.", ". They are somebody's code, like the plugin itself."));
+            }
             text.append("\n\n").append(tr(
-                "Плагин — это программа (" + info.lines + " строк), которая будет работать внутри Ngram с доступом к вашему аккаунту в приложении. Устанавливайте, только если доверяете автору.",
-                "A plugin is a program (" + info.lines + " lines) that will run inside Ngram with access to your account in the app. Install it only if you trust its author."));
+                "Плагин работает внутри Ngram с доступом к вашему аккаунту в приложении. Список выше — подсказка, а не защита: устанавливайте, только если доверяете автору.",
+                "A plugin runs inside Ngram with access to your account in the app. The list above is a hint, not a guard: install only if you trust the author."));
             builder.setMessage(text);
-            builder.setPositiveButton(update ? tr("Обновить", "Update") : tr("Установить", "Install"), (d, w) -> {
+            builder.setPositiveButton(old != null ? tr("Обновить", "Update") : tr("Установить", "Install"), (d, w) -> {
+                final AlertDialog busy = new AlertDialog(fragment.getContext(), AlertDialog.ALERT_TYPE_SPINNER);
+                busy.showDelayed(400);
                 final Plugins.Info[] installed = new Plugins.Info[1];
-                Plugins.install(file, installed, error -> {
+                Plugins.install(file, installed, failure -> {
+                    busy.dismiss();
                     if (fragment.getContext() == null) {
                         return;
                     }
-                    if (error != null) {
-                        failed(fragment, tr("Плагин не установлен.", "The plugin was not installed."), error);
+                    if (failure != null) {
+                        failed(fragment, tr("Плагин не установлен.", "The plugin was not installed."), failure);
                         return;
                     }
                     fragment.presentFragment(new PluginFragment(installed[0].id, "", null));
@@ -279,6 +312,41 @@ public class PluginsFragment extends NgramFragment {
         });
     }
 
+    /** The findings of reading a plugin's code, one per line. */
+    static String abilities(Plugins.Info info) {
+        final StringBuilder sb = new StringBuilder();
+        for (String use : info.uses) {
+            final String line;
+            switch (use) {
+                case "network":
+                    line = tr("выходит в интернет", "goes online");
+                    break;
+                case "send":
+                    line = tr("отправляет или меняет сообщения от вашего имени", "sends or edits messages as you");
+                    break;
+                case "watch":
+                    line = tr("следит за сообщениями и событиями приложения", "watches messages and what happens in the app");
+                    break;
+                case "app":
+                    line = tr("обращается к классам приложения напрямую", "reaches into the app's classes directly");
+                    break;
+                case "files":
+                    line = tr("читает и пишет файлы", "reads and writes files");
+                    break;
+                case "shell":
+                    line = tr("запускает другой код или команды", "runs other code or commands");
+                    break;
+                default:
+                    line = use;
+                    break;
+            }
+            sb.append("\n• ").append(line);
+        }
+        if (sb.length() == 0) {
+            sb.append("\n• ").append(tr("ничего из перечисленного: только команды, меню и настройки", "none of the above: commands, menus and settings only"));
+        }
+        return sb.toString();
+    }
     static void failed(BaseFragment fragment, String title, String details) {
         if (fragment.getContext() == null) {
             return;

@@ -1,0 +1,38 @@
+# @id          hello
+# @name        Привет, мир
+# @version     2.0
+# @author      Ngram
+# @about       Первый плагин: команда .hello, пункт в меню сообщения и своя настройка
+# @needs       отправлять сообщение, когда вы пишете команду
+
+"""Самый короткий плагин на наборе Ngram.
+
+Паспорт сверху приложение читает, не запуская файл. Дальше плагин говорит, что он умеет,
+декораторами: команда, пункт меню, настройки.
+"""
+
+from ngram import plugin, ui, kit
+
+plugin.strings(
+    ru={"hi": "Привет", "world": "мир", "count": "Знаков: {n}, слов: {w}", "menu": "Сколько знаков"},
+    en={"hi": "Hello", "world": "world", "count": "Characters: {n}, words: {w}", "menu": "Count Characters"},
+)
+
+plugin.settings.define(
+    kit.Section("Приветствие"),
+    kit.Text("greeting", "Слово", default=plugin.t("hi")),
+    kit.Switch("loud", "С восклицательным знаком", default=True),
+    kit.Note("Напишите в любом чате «.hello Ngram» и отправьте: уйдёт приветствие, а не команда."),
+)
+
+
+@plugin.command(".hello", help="отправить приветствие")
+def hello(cmd):
+    # Что вернёт обработчик, то и будет отправлено вместо команды.
+    name = cmd.args or plugin.t("world")
+    return "%s, %s%s" % (plugin.settings["greeting"], name, "!" if plugin.settings["loud"] else "")
+
+
+@plugin.menu("message", plugin.t("menu"), icon="msg_info", when=lambda ctx: bool(ctx.text))
+def count(ctx):
+    ui.toast(plugin.t("count", n=len(ctx.text), w=len(ctx.text.split())))

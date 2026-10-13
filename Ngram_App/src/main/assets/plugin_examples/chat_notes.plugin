@@ -1,0 +1,69 @@
+# @id          chat_notes
+# @name        Заметки к чатам
+# @version     1.0
+# @author      Ngram
+# @about       Своя заметка к любому чату: видна только вам и напоминает о себе, когда чат открывается
+# @needs       знать, какой чат открыт; хранить заметки на устройстве
+
+"""События приложения, меню чата и хранилище плагина.
+
+Заметки лежат в ``plugin.store`` — словаре, который переживает перезапуск. Они никуда не
+отправляются: ни собеседнику, ни в Telegram.
+"""
+
+from ngram import plugin, ui, chats, kit
+
+plugin.settings.define(
+    kit.Section("Заметки к чатам"),
+    kit.Switch("remind", "Показывать заметку при открытии чата", default=True),
+    kit.Number("length", "Сколько знаков показывать", 40, 200, default=80, step=40),
+    kit.Button("Все заметки", on_tap=lambda: show_all()),
+    kit.Button("Стереть все заметки", on_tap=lambda: wipe(), danger=True),
+    kit.Note("Заметка добавляется в меню чата: три точки в заголовке → Ngram → «Заметка к чату»."),
+)
+
+
+def key(chat_id):
+    return "chat_%d" % chat_id
+
+
+@plugin.menu("chat", "Заметка к чату", icon="msg_edit")
+def edit_note(ctx):
+    current = plugin.store.get(key(ctx.chat_id), "")
+
+    def save(text):
+        text = text.strip()
+        if text:
+            plugin.store[key(ctx.chat_id)] = text
+            ui.toast("Заметка сохранена", kind="ok")
+        elif key(ctx.chat_id) in plugin.store:
+            del plugin.store[key(ctx.chat_id)]
+            ui.toast("Заметка удалена")
+
+    ui.ask("Заметка к чату", save, hint="Например: вернуть книгу", text=current,
+           note="Её видите только вы. Сотрите текст, чтобы удалить заметку.")
+
+
+@plugin.on("chat.open")
+def remind(event):
+    note = plugin.store.get(key(event.chat_id))
+    if note and plugin.settings["remind"]:
+        limit = plugin.settings["length"]
+        ui.toast(note if len(note) <= limit else note[:limit] + "…")
+
+
+def show_all():
+    rows = []
+    for name in plugin.store.keys():
+        if name.startswith("chat_"):
+            chat_id = int(name[5:])
+            rows.append((chats.title(chat_id) or str(chat_id), plugin.store[name]))
+    if rows:
+        ui.sheet("Заметки к чатам", rows)
+    else:
+        ui.toast("Заметок пока нет")
+
+
+def wipe():
+    ui.alert("Стереть все заметки?", "Это нельзя отменить.", ok="Стереть", cancel="Отмена", danger=True,
+             on_ok=lambda: (plugin.store.clear(), ui.toast("Заметки стёрты")))

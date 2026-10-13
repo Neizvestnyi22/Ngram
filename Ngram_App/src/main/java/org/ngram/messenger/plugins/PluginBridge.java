@@ -70,6 +70,25 @@ public final class PluginBridge {
         Plugins.setHooks(exact, partial, send);
     }
 
+    public static void setEvents(String[] names) {
+        Plugins.setEvents(names);
+    }
+
+    /** The language the app is shown in: "ru", "en"... */
+    public static String language() {
+        try {
+            final java.util.Locale locale = LocaleController.getInstance().getCurrentLocale();
+            return locale == null ? "en" : locale.getLanguage();
+        } catch (Throwable e) {
+            return "en";
+        }
+    }
+
+    /** The account on screen. */
+    public static int account() {
+        return org.telegram.messenger.UserConfig.selectedAccount;
+    }
+
     public static void pluginFailed(String pluginId, String reason) {
         ui(() -> Plugins.failed(pluginId, reason));
     }
@@ -169,6 +188,38 @@ public final class PluginBridge {
             } else {
                 Toast.makeText(ApplicationLoader.applicationContext, text, Toast.LENGTH_SHORT).show();
             }
+        });
+    }
+
+    /** A note at the bottom of the screen of the given kind (info, ok, error), with an optional button. */
+    public static void notice(String text, String kind, String button, int callback) {
+        ui(() -> {
+            final BaseFragment fragment = lastFragment();
+            if (fragment == null || fragment.getContext() == null) {
+                Toast.makeText(ApplicationLoader.applicationContext, text, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            final int icon = "error".equals(kind) ? R.raw.error : "ok".equals(kind) ? R.raw.done : R.raw.info;
+            if (!empty(button) && callback != 0) {
+                BulletinFactory.of(fragment).createSimpleBulletin(icon, text, button, () -> Plugins.runCallback(callback)).show();
+            } else {
+                BulletinFactory.of(fragment).createSimpleBulletin(icon, text).show();
+            }
+        });
+    }
+
+    /** A sheet of labelled values; a tap on a value copies it. */
+    public static void sheet(String title, String[] labels, String[] values) {
+        ui(() -> {
+            final BaseFragment fragment = lastFragment();
+            if (fragment == null || fragment.getContext() == null || labels == null || values == null) {
+                return;
+            }
+            final org.ngram.messenger.ui.InfoSheet.Rows rows = new org.ngram.messenger.ui.InfoSheet.Rows();
+            for (int i = 0; i < labels.length && i < values.length; i++) {
+                rows.add(labels[i], values[i]);
+            }
+            org.ngram.messenger.ui.InfoSheet.show(fragment, title, rows);
         });
     }
 

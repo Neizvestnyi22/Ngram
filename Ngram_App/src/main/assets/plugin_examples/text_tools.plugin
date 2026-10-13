@@ -1,63 +1,58 @@
-"""Текстовые инструменты: автозамены при отправке и три команды.
+# @id          text_tools
+# @name        Текстовые инструменты
+# @version     2.0
+# @author      Ngram
+# @about       Автозамены при отправке (-> в →) и команды .upper, .lower, .mock
+# @needs       менять текст сообщения перед отправкой
 
-    .upper текст   - ОТПРАВИТЬ ЗАГЛАВНЫМИ
-    .lower текст   - отправить строчными
-    .mock текст    - оТпРаВиТь ВоТ тАк
+"""Событие ``message.sending`` и команды.
 
-Показывает самый короткий способ делать команды - add_command.
+Обработчик события получает сообщение, которое вот-вот уйдёт: его текст можно поменять,
+а отправку — отменить, вызвав ``msg.cancel()``.
 """
 
-from typing import Any, List
-
-from base_plugin import BasePlugin, HookResult, HookStrategy
-from ui.settings import Header, Switch, EditText, Divider
-
-__id__ = "text_tools"
-__name__ = "Текстовые инструменты"
-__description__ = "Автозамены и команды .upper, .lower, .mock"
-__author__ = "Ngram"
-__version__ = "1.0.0"
-__min_version__ = "3.1"
+from ngram import plugin, kit
 
 DEFAULT_PAIRS = "-> = →\n<- = ←\n(c) = ©\n(tm) = ™\n... = …"
 
+plugin.settings.define(
+    kit.Section("Автозамены"),
+    kit.Switch("enabled", "Заменять при отправке", default=True),
+    kit.Text("pairs", "Пары замен", default=DEFAULT_PAIRS, multiline=True, limit=2000),
+    kit.Note("По одной паре в строке: «что = на что»."),
+)
 
-class TextToolsPlugin(BasePlugin):
-    def on_plugin_load(self):
-        # Обработчик команды получает текст после команды и возвращает то, что нужно отправить.
-        self.add_command(".upper", lambda args, params: args.upper() or None, "отправить заглавными")
-        self.add_command(".lower", lambda args, params: args.lower() or None, "отправить строчными")
-        self.add_command(".mock", self._mock, "оТпРаВиТь ВоТ тАк")
-        self.add_on_send_message_hook()
 
-    def _mock(self, args, params):
-        if not args:
-            return None  # нечего отправлять: команда просто исчезнет
-        return "".join(ch.upper() if i % 2 else ch.lower() for i, ch in enumerate(args))
+def pairs():
+    found = []
+    for line in str(plugin.settings["pairs"]).splitlines():
+        left, sep, right = line.partition("=")
+        if sep and left.strip():
+            found.append((left.strip(), right.strip()))
+    return found
 
-    def create_settings(self) -> List[Any]:
-        return [
-            Header(text="Автозамены"),
-            Switch(key="enabled", text="Заменять при отправке", default=True),
-            EditText(key="pairs", hint="Пары замен", default=DEFAULT_PAIRS, multiline=True),
-            Divider(text="По одной паре в строке: «что = на что»."),
-        ]
 
-    def _pairs(self):
-        pairs = []
-        for line in str(self.get_setting("pairs", DEFAULT_PAIRS)).splitlines():
-            left, sep, right = line.partition("=")
-            if sep and left.strip():
-                pairs.append((left.strip(), right.strip()))
-        return pairs
+@plugin.on("message.sending")
+def replace(msg):
+    if not plugin.settings["enabled"] or not msg.text:
+        return
+    text = msg.text
+    for old, new in pairs():
+        text = text.replace(old, new)
+    if text != msg.text:
+        msg.text = text
 
-    def on_send_message_hook(self, account: int, params: Any) -> HookResult:
-        if not self.get_setting("enabled", True):
-            return HookResult()
-        text = params.message
-        for old, new in self._pairs():
-            text = text.replace(old, new)
-        if text == params.message:
-            return HookResult()
-        params.message = text
-        return HookResult(strategy=HookStrategy.MODIFY, params=params)
+
+@plugin.command(".upper", help="отправить заглавными")
+def upper(cmd):
+    return cmd.args.upper() or None
+
+
+@plugin.command(".lower", help="отправить строчными")
+def lower(cmd):
+    return cmd.args.lower() or None
+
+
+@plugin.command(".mock", help="оТпРаВиТь ВоТ тАк")
+def mock(cmd):
+    return "".join(ch.upper() if i % 2 else ch.lower() for i, ch in enumerate(cmd.args)) or None

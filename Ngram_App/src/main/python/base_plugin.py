@@ -132,6 +132,9 @@ class BasePlugin:
         self._strikes = 0
         self._slow = 0
         self._slow_reported = set()
+        # How often the engine called into the plugin and how long that took, in milliseconds.
+        self._calls = 0
+        self._ms = 0.0
 
     # ---- wiring done by the engine -------------------------------------------------
 
