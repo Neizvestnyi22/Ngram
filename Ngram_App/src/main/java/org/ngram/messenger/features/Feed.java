@@ -1,6 +1,5 @@
 package org.ngram.messenger.features;
 
-import android.content.SharedPreferences;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -55,7 +54,7 @@ public final class Feed {
     public static final String KEY_COMPACT = "feedCompact";     // a few lines of text per post
     public static final String KEY_VIEWS = "feedViews";         // posts shown count as viewed
     public static final String KEY_FLAT = "feedFlat";           // one list instead of cards
-    private static final String KEY_HIDDEN = "feedHidden";      // channels left out, ids
+    private static final String KEY_HIDDEN = "feedLeftOut";     // channels left out: ids separated by commas
     private static final String KEY_WORDS = "feedWords";        // posts with these words are left out
     private static final String KEY_SAVED = "feedSaved";        // "read later"
 
@@ -178,8 +177,13 @@ public final class Feed {
     }
 
     public static Set<String> hidden() {
-        final SharedPreferences prefs = NgramConfig.prefs();
-        return prefs == null ? new HashSet<>() : new HashSet<>(prefs.getStringSet(KEY_HIDDEN, new HashSet<>()));
+        final HashSet<String> set = new HashSet<>();
+        for (String id : Opt.text(KEY_HIDDEN).split(",")) {
+            if (!id.trim().isEmpty()) {
+                set.add(id.trim());
+            }
+        }
+        return set;
     }
 
     public static boolean isHidden(long channelId) {
@@ -187,17 +191,13 @@ public final class Feed {
     }
 
     public static void setHidden(long channelId, boolean hide) {
-        final SharedPreferences prefs = NgramConfig.prefs();
-        if (prefs == null) {
-            return;
-        }
         final Set<String> set = hidden();
         if (hide) {
             set.add(Long.toString(channelId));
         } else {
             set.remove(Long.toString(channelId));
         }
-        prefs.edit().putStringSet(KEY_HIDDEN, set).apply();
+        Opt.text(KEY_HIDDEN, android.text.TextUtils.join(",", set));
     }
 
     public static String words() {

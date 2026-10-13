@@ -28,6 +28,10 @@ public final class MainMenu {
             options.add(R.drawable.msg_channel, tr("Лента", "Feed"), () -> open(new FeedFragment(null)));
         }
         options.add(R.drawable.msg_bot, tr("Ассистент", "Assistant"), () -> open(Ai.ready() ? new AiChatFragment() : new AiSettingsFragment()));
+        final int drafts = org.ngram.messenger.ui.DraftsFragment.count(org.telegram.messenger.UserConfig.selectedAccount);
+        if (drafts > 0) {
+            options.add(R.drawable.msg_edit, tr("Неотправленное: ", "Unsent Texts: ") + drafts, () -> open(new org.ngram.messenger.ui.DraftsFragment()));
+        }
         PluginMenus.fillMainMenu(options);
     }
 

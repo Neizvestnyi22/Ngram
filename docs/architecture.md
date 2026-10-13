@@ -35,7 +35,7 @@ flowchart TB
 
 ## Посредник: `org.ngram.core`
 
-Три класса лежат внутри `TMessagesProj`, чтобы код Telegram мог к ним обращаться.
+Четыре класса лежат внутри `TMessagesProj`, чтобы код Telegram мог к ним обращаться.
 
 ### `NgramHooks` — дверь к функциям Ngram
 
@@ -49,7 +49,7 @@ NgramHooks.install(new NgramHost());
 
 | Метод | Откуда вызывается | Зачем |
 | --- | --- | --- |
-| `fillSettings`, `openSettings` | `SettingsActivity` | Раздел Ngram в настройках и переход на его экраны. |
+| `fillSettings`, `openSettings` | `SettingsActivity` | Строка «Ngram» в настройках и переход на экран с плитками (`HubFragment`). |
 | `onLaunch`, `onIntent` | `LaunchActivity` | Старт главного окна и новые намерения (отладочные входы). |
 | `onRequest` | `ConnectionsManager` | Каждый запрос к Telegram перед отправкой: можно пропустить, заменить, отбросить или ответить на месте. |
 | `onResponse` | `ConnectionsManager` | Ответ на запрос. |
@@ -61,8 +61,12 @@ NgramHooks.install(new NgramHost());
 | `onDoubleTap` | `ChatActivity` | Двойное нажатие на сообщение, когда пользователь выбрал не реакцию. |
 | `confirm` | `ChatActivityEnterView`, `VoIPHelper` | Вопрос перед стикером, GIF или звонком; без посредника действие выполняется сразу. |
 | `onSendMessage` | `SendMessagesHelper.sendMessage` | Сообщение перед отправкой: плагин может изменить его или отменить. |
+| `onChat` | `ChatActivity` | Экран чата открылся или закрылся: событие для плагинов. |
+| `onOpenUrl` | `Browser.openUrl` | Ссылку вот-вот откроют: плагин может её перехватить. |
+| `feedTab`, `createFeed`, `feedTitle` | `MainTabsActivity` | Вкладка «Лента» на главном экране и её экран. |
+| `iconTitle` | `LauncherIconController` | Названия значков приложения, добавленных Ngram. |
 
-Сейчас `onResponse` и `onUpdates` ничего не делают — это место для будущих плагинов.
+Кроме посредника, Ngram пользуется точками расширения самого Telegram — методами `ApplicationLoader`, которые переопределяет `NgramApp`: `addItemOptions` (пункты в меню главного экрана), `onResume` и `onPause` (приложение вышло на экран или ушло в фон).
 
 ### `NgramConfig` — настройки вида
 
@@ -73,6 +77,12 @@ NgramHooks.install(new NgramHost());
 ### `NgramMotion` — отклик кнопок
 
 Заменяет анимацию нажатия Telegram на «желе» или «стекло». Подключён в двух местах: `ScaleStateListAnimator.apply` (обычные кнопки, больше двухсот мест в коде) и `ButtonBounce` (кнопки, нарисованные вручную).
+
+У кнопок, стекло под которыми рисует не сама кнопка, а шапка или поле ввода, есть второй вариант — `apply(view, onPose)`: на каждом шаге анимации вызывается `onPose`, и тот, кто рисует стекло, спрашивает `spread(...)`, на сколько его раздвинуть. Так стекло под стрелкой «Назад» и скрепкой сплющивается вместе с кнопкой. `pop(view, amount)` — короткий «прыжок» выбранного элемента.
+
+### `NgramBackCounter` — число у стрелки «Назад»
+
+Слушает уведомления приложения о счётчике непрочитанных и передаёт число в шапку чата (`ActionBar.setNgramBackCount`). Создаётся вместе с экраном чата и снимается вместе с ним.
 
 ## Как добавить свою настройку
 

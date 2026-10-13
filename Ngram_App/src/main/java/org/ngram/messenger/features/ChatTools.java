@@ -56,6 +56,7 @@ public final class ChatTools {
     private static final int COPY_PHOTO = NgramHooks.MESSAGE_OPTION_BASE + 13;
     private static final int STICKER = NgramHooks.MESSAGE_OPTION_BASE + 14;
     private static final int PLUGIN = NgramHooks.MESSAGE_OPTION_BASE + 15;
+    private static final int REMIND = NgramHooks.MESSAGE_OPTION_BASE + 16;
 
     private ChatTools() {
     }
@@ -68,6 +69,9 @@ public final class ChatTools {
         }
         if (Opt.menu(Opt.MENU_SAVE) && canForward(chat, message) && chat.getDialogId() != chat.getUserConfig().getClientUserId()) {
             add(icons, items, options, SAVE, R.drawable.msg_saved, tr("В Избранное", "To Saved Messages"));
+        }
+        if (Opt.menu(Opt.MENU_REMIND) && canForward(chat, message)) {
+            add(icons, items, options, REMIND, R.drawable.msg_calendar2, tr("Напомнить", "Remind Me"));
         }
         if (Opt.menu(Opt.MENU_REPEAT) && canForward(chat, message) && canWrite(chat)) {
             add(icons, items, options, REPEAT, R.drawable.msg_retry, tr("Повторить", "Repeat"));
@@ -127,8 +131,60 @@ public final class ChatTools {
             case PLUGIN:
                 installPlugin(chat, message);
                 return true;
+            case REMIND:
+                remind(chat, message);
+                return true;
         }
         return false;
+    }
+
+    /**
+     * Asks when, then has Telegram deliver the message to Saved Messages at that time: a
+     * reminder of Telegram's own kind, set from the message instead of from Saved Messages.
+     */
+    static void remind(ChatActivity chat, MessageObject message) {
+        if (chat.getContext() == null || !canForward(chat, message)) {
+            return;
+        }
+        final java.util.Calendar now = java.util.Calendar.getInstance();
+        final ArrayList<CharSequence> names = new ArrayList<>();
+        final ArrayList<Long> times = new ArrayList<>();
+        names.add(tr("Через час", "In an Hour"));
+        times.add(now.getTimeInMillis() + 3600_000L);
+        names.add(tr("Через три часа", "In Three Hours"));
+        times.add(now.getTimeInMillis() + 3 * 3600_000L);
+        if (now.get(java.util.Calendar.HOUR_OF_DAY) < 19) {
+            names.add(tr("Сегодня в 20:00", "Today at 8 PM"));
+            times.add(at(now, 0, 20));
+        }
+        names.add(tr("Завтра в 9:00", "Tomorrow at 9 AM"));
+        times.add(at(now, 1, 9));
+        names.add(tr("Послезавтра в 9:00", "The Day After Tomorrow at 9 AM"));
+        times.add(at(now, 2, 9));
+        names.add(tr("Через неделю в 9:00", "In a Week at 9 AM"));
+        times.add(at(now, 7, 9));
+        final AlertDialog.Builder builder = new AlertDialog.Builder(chat.getContext(), chat.getResourceProvider());
+        builder.setTitle(tr("Когда напомнить?", "Remind Me When?"));
+        builder.setItems(names.toArray(new CharSequence[0]), (dialog, which) -> {
+            final long self = chat.getUserConfig().getClientUserId();
+            final int date = (int) (times.get(which) / 1000L);
+            final int failed = chat.getSendMessagesHelper().sendMessage(withAlbum(chat, message), self, false, false, true, date, 0);
+            note(chat, failed == 0 ? R.raw.saved_messages : R.raw.error, failed == 0
+                ? tr("Напомню: ", "Reminder set: ") + names.get(which).toString().toLowerCase() + tr(". Сообщение придёт в «Избранное».", ". The message will arrive in Saved Messages.")
+                : tr("Не удалось поставить напоминание.", "Could not set the reminder."));
+        });
+        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        chat.showDialog(builder.create());
+    }
+
+    /** The given hour of the day that is {@code days} days from now, in milliseconds. */
+    private static long at(java.util.Calendar now, int days, int hour) {
+        final java.util.Calendar c = (java.util.Calendar) now.clone();
+        c.add(java.util.Calendar.DAY_OF_YEAR, days);
+        c.set(java.util.Calendar.HOUR_OF_DAY, hour);
+        c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0);
+        return c.getTimeInMillis();
     }
 
     // ---- what may be done with a message ------------------------------------------------

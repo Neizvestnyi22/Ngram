@@ -2,162 +2,310 @@
 
 `Настройки → Ngram → Плагины`
 
-Плагин — это файл `.plugin` с программой на Python, которая добавляет в Ngram команды, пункты меню и собственные настройки. Имена в SDK повторяют [exteraGram](https://plugins.exteragram.app/docs), поэтому плагин, написанный по его документации, читается здесь так же.
+Плагин — это файл `.plugin` с программой на Python, которая добавляет в Ngram команды, пункты меню, реакции на события и собственные настройки. У Ngram свой набор для плагинов — пакет `ngram`. Плагины, написанные для exteraGram, тоже загружаются: см. [совместимость](#совместимость-с-exteragram).
+
+<p>
+  <img src="screenshots/plugin-install.png" width="270" alt="Диалог установки: что умеет код плагина">
+  <img src="screenshots/plugin.png" width="270" alt="Страница плагина">
+</p>
 
 > [!WARNING]
-> Плагин работает внутри приложения с его правами: он может читать то, что видит приложение, и отправлять сообщения от вашего имени. Устанавливайте только те плагины, авторам которых доверяете. Ngram не проверяет чужие плагины и не отвечает за них.
+> Плагин работает внутри приложения с его правами: он может читать то, что видит приложение, и отправлять сообщения от вашего имени. Перед установкой Ngram показывает, что умеет код плагина, но это подсказка, а не защита. Устанавливайте только те плагины, авторам которых доверяете.
+
+## Содержание
+
+- [Как установить](#как-установить)
+- [Первый плагин](#первый-плагин)
+- [Паспорт](#паспорт)
+- [Команды](#команды)
+- [События](#события)
+- [Пункты меню](#пункты-меню)
+- [Настройки](#настройки)
+- [Хранилище, тексты, таймеры](#хранилище-тексты-таймеры)
+- [Интерфейс, чаты, сеть](#интерфейс-чаты-сеть)
+- [Доступ к приложению](#доступ-к-приложению)
+- [Страховка и нагрузка](#страховка-и-нагрузка)
+- [Совместимость с exteraGram](#совместимость-с-exteragram)
+- [Отладка](#отладка)
+- [Код](#код)
 
 ## Как установить
 
-- **Из файла.** Плагины → «Установить из файла».
-- **Из чата.** Скачайте файл `.plugin` в сообщении, нажмите на сообщение → «Установить плагин».
-- **Пример.** Плагины → «Примеры плагинов»: три плагина, которые идут вместе с приложением.
+| Способ | Где |
+| --- | --- |
+| Из файла | Плагины → «Установить из файла» |
+| По ссылке | Плагины → «Установить по ссылке» (прямая ссылка `https://…` на файл, до 2 МБ) |
+| Из чата | Скачайте файл `.plugin` в сообщении, нажмите на сообщение → «Установить плагин» |
+| Пример | Плагины → «Примеры плагинов»: пять плагинов, которые идут вместе с приложением |
 
-Перед установкой Ngram показывает название, автора, описание и число строк и спрашивает согласие. Установленный плагин выключен, пока вы сами не включите его на его странице.
+Перед установкой Ngram читает файл, не запуская его, и показывает:
 
-Python запускается, только когда включён хотя бы один плагин, — через полторы секунды после старта приложения и в отдельном потоке.
+- название, версию, автора и описание из паспорта;
+- что умеет код: выходит в интернет, отправляет сообщения, следит за сообщениями и событиями, обращается к классам приложения напрямую, работает с файлами, запускает другой код;
+- что автор сам написал в строке `@needs`;
+- какие пакеты Python будут скачаны с pypi.org, если плагин их просит.
 
-## Страховка
-
-- Плагин, чьи обработчики ошиблись 8 раз подряд, выключается сам; причина видна на его странице.
-- Если приложение дважды подряд закрылось в первые секунды после запуска с плагинами, включается **безопасный режим**: ни один плагин не загружается, пока вы не разрешите.
-- Обработчик, который работает дольше 300 мс, отмечается в журнале.
-
-Журнал: Плагины → «Журнал» (и `adb logcat -s NgramPlugin`).
+Установленный плагин выключен, пока вы сами не включите его на его странице. Python запускается, только когда включён хотя бы один плагин, — через полторы секунды после старта приложения и в отдельном потоке.
 
 ## Первый плагин
 
 ```python
-from base_plugin import BasePlugin, MenuItemData, MenuItemType
-from ui.bulletin import BulletinHelper
-from ui.settings import Header, Input
+# @id          hello
+# @name        Привет, мир
+# @version     1.0
+# @author      Вы
+# @about       Команда .hello и пункт в меню сообщения
+# @needs       отправлять сообщение, когда вы пишете команду
 
-__id__ = "hello_world"          # латиница, цифры, _ и -, от 2 до 64 знаков
-__name__ = "Привет, мир"
-__description__ = "Пункт в меню сообщения и команда .hello"
-__author__ = "Вы"
-__version__ = "1.0.0"
+from ngram import plugin, ui, kit
+
+plugin.settings.define(
+    kit.Section("Приветствие"),
+    kit.Text("greeting", "Слово", default="Привет"),
+)
 
 
-class HelloPlugin(BasePlugin):
-    def on_plugin_load(self):
-        self.add_menu_item(MenuItemData(
-            menu_type=MenuItemType.MESSAGE_CONTEXT_MENU,
-            text="Сказать привет",
-            icon="msg_info",
-            on_click=self.on_menu,
-        ))
-        self.add_command(".hello", self.on_command, "отправить приветствие")
+@plugin.command(".hello", help="отправить приветствие")
+def hello(cmd):
+    return "%s, %s!" % (plugin.settings["greeting"], cmd.args or "мир")
 
-    def on_menu(self, context):
-        message = context.get("message")            # MessageObject приложения
-        BulletinHelper.show_info("Знаков: %d" % len(message.messageOwner.message or ""))
 
-    def on_command(self, args, params):
-        return "%s, %s!" % (self.get_setting("greeting", "Привет"), args or "мир")
-
-    def create_settings(self):
-        return [Header(text="Приветствие"), Input(key="greeting", text="Слово", default="Привет")]
+@plugin.menu("message", "Сколько знаков", icon="msg_info")
+def count(ctx):
+    ui.toast("Знаков: %d" % len(ctx.text))
 ```
 
-Сохраните как `hello_world.plugin` и установите.
+Сохраните как `hello.plugin` и установите. В плагине нет класса и нет методов «жизненного цикла»: файл выполняется один раз, а декораторы записывают, что он умеет.
 
-## Что умеет плагин
+`plugin` — это ручка именно вашего файла: у каждого плагина она своя. `ui`, `chats`, `net`, `tg`, `kit` — общие модули.
 
-### Жизненный цикл
+## Паспорт
 
-| Метод | Когда вызывается |
+Строки-комментарии в начале файла, до первой строки кода. Приложение читает их, не запуская файл.
+
+| Строка | Что значит | Обязательна |
+| --- | --- | --- |
+| `# @id` | Имя плагина: латиница, цифры, `_` и `-`, от 2 до 64 знаков. По нему плагин обновляется. | да |
+| `# @name` | Название, которое видит человек. | |
+| `# @version` | Версия: `1.2`, `1.10.3`. | |
+| `# @author` | Автор. | |
+| `# @about` | Одна строка о том, что делает плагин. | |
+| `# @needs` | Что плагину нужно, своими словами. Показывается перед установкой. | |
+| `# @requires` | Пакеты Python через запятую: `requests, emoji`. См. [ниже](#пакеты-python). | |
+| `# @update` | Прямая ссылка `https://…` на свежую версию файла. На странице плагина появится «Проверить обновление». | |
+| `# @icon` | Имя значка из приложения (`msg_info`). | |
+
+## Команды
+
+```python
+@plugin.command(".upper", help="отправить заглавными")
+def upper(cmd):
+    return cmd.args.upper() or None
+```
+
+Когда вы отправляете сообщение, начинающееся с команды, вызывается функция.
+
+| Что вернуть | Что произойдёт |
 | --- | --- |
-| `on_plugin_load()` | Плагин включили или приложение запустилось с ним. |
-| `on_plugin_unload()` | Плагин выключают или удаляют. Таймеры и пункты меню снимаются сами. |
+| строку | она уйдёт вместо команды |
+| ничего | команда просто исчезнет: плагин сделал своё дело |
 
-### Команды — собственное дополнение Ngram
+У `cmd` есть: `args` (текст после команды), `words()` (он же по словам), `text` (всё сообщение), `chat_id`, `params` (объект приложения `SendMessageParams`).
 
-```python
-self.add_command(".upper", lambda args, params: args.upper(), "заглавными")
-```
-
-Когда вы отправляете сообщение, начинающееся с команды, вызывается обработчик. Верните строку — она уйдёт вместо команды; не верните ничего — команда просто исчезнет.
-
-### Перехват отправки
+## События
 
 ```python
-self.add_on_send_message_hook()
-
-def on_send_message_hook(self, account, params):
-    params.message = params.message.replace("->", "→")
-    return HookResult(strategy=HookStrategy.MODIFY, params=params)
+@plugin.on("message.sending")
+def arrows(msg):
+    msg.text = msg.text.replace("->", "→")
 ```
 
-`params` — настоящий `SendMessagesHelper.SendMessageParams` приложения: `message`, `peer`, `replyToMsg` и остальные поля. `HookStrategy.CANCEL` отменяет отправку.
+| Событие | Когда | Поля | Можно остановить |
+| --- | --- | --- | --- |
+| `message.sending` | сообщение вот-вот уйдёт | `text` (можно менять), `chat_id`, `reply_to`, `params`, `account` | да |
+| `message.new` | пришло новое сообщение | `message` (`TLRPC.Message`), `text`, `chat_id`, `out` | |
+| `message.edited` | сообщение изменили | `message`, `account` | |
+| `message.deleted` | сообщения удалили | `ids`, `channel_id`, `account` | |
+| `chat.open` | открылся экран чата | `chat_id`, `account`, `fragment` (`ChatActivity`) | |
+| `chat.close` | экран чата закрылся | то же | |
+| `link.open` | ссылку вот-вот откроют | `url`, `context` | да |
+| `app.resume` / `app.pause` | приложение вышло на экран / ушло в фон | | |
+| `request` | запрос к API Telegram вот-вот уйдёт | `tl_name`, `request` (можно заменить), `account` | да |
+| `response` | пришёл ответ на запрос | `tl_name`, `response`, `error`, `account` | |
+| `update` | пришло обновление от Telegram | `tl_name`, `update`, `account` | |
+| `app:<имя>` | любое внутреннее уведомление приложения | `account`, `args` | |
 
-### Запросы и обновления
+- **Остановить** событие — вернуть `False` или вызвать `event.cancel()`.
+- **Сырые события** `request`, `response`, `update` требуют имя класса: `@plugin.on("request", name="TL_messages_sendMessage")`. Звёздочка в конце — совпадение по началу: `name="TL_messages_*"`.
+- **`app:<имя>`** — имя поля в `NotificationCenter` приложения: `app:didReceiveNewMessages`, `app:messagesDeleted`, `app:dialogsNeedReload` и сотни других. Так плагин слышит почти всё, что происходит в приложении, без подмены его методов.
+- `priority=` задаёт порядок: больше — раньше.
+
+Пока ни один включённый плагин не слушает событие, оно не доходит до Python вовсе — приложение не тратит на него время.
+
+## Пункты меню
 
 ```python
-self.add_hook("TL_messages_sendMessage")      # имя класса запроса или обновления
-
-def pre_request_hook(self, request_name, account, request): ...   # до отправки: можно изменить или отменить
-def post_request_hook(self, request_name, account, response, error): ...   # ответ: только смотреть
-def on_update_hook(self, update_name, account, update): ...       # одно обновление: только смотреть
-def on_updates_hook(self, container_name, account, updates): ...  # пачка обновлений: только смотреть
+@plugin.menu("chat", "Заметка к чату", icon="msg_edit")
+def note(ctx):
+    ...
 ```
 
-`self.add_new_message_hook()` включает `on_new_message(message)` — вызывается с `TLRPC.Message` для каждого нового сообщения.
-
-### Пункты меню
-
-| `MenuItemType` | Где появляется |
+| Место | Где появляется |
 | --- | --- |
-| `MESSAGE_CONTEXT_MENU` | Меню сообщения. |
-| `CHAT_ACTION_MENU` | Меню чата → Ngram. |
-| `PROFILE_ACTION_MENU` | Меню профиля → Ngram. |
-| `DRAWER_MENU`, `MAIN_MENU` | Экран «Плагины», раздел «Действия плагинов» (бокового меню в Ngram нет). |
+| `"message"` | меню сообщения |
+| `"chat"` | меню чата → Ngram |
+| `"profile"` | меню профиля → Ngram |
+| `"main"` | меню главного экрана (три точки над списком чатов) и экран «Плагины» |
 
-Обработчик получает словарь: `account`, `context` (Activity), `fragment`, `dialog_id`, `message`, `user` / `chat`, `userId` / `chatId`. Параметр `condition` может быть функцией от того же словаря: вернула `False` — пункт не показывается.
+Функция получает `ctx`:
 
-### Настройки
-
-`create_settings()` возвращает список строк: `Header`, `Divider`, `Switch`, `Selector`, `Input`, `EditText`, `Text` (в том числе с `on_click` и вложенной страницей `create_sub_fragment`). Значения читаются через `self.get_setting(key, default)` и хранятся в файле плагина.
-
-### Интерфейс
-
-```python
-from ui.bulletin import BulletinHelper       # show_info, show_error, show_success, show_with_button…
-from ui.alert import AlertDialogBuilder, prompt
-```
-
-### Telegram
-
-```python
-from client_utils import (send_text, send_message, send_request, send_request_sync, run_on_queue,
-                          get_messages_controller, get_user_config, get_last_fragment,
-                          get_current_chat_id, get_user, get_chat, open_chat)
-from org.telegram.tgnet import TLRPC          # классы приложения доступны напрямую
-```
-
-`send_text(peer_id, text, parse_mode="markdown")` отправляет текст; сообщения, отправленные самим плагином, через обработчики отправки плагинов не проходят — зациклиться нельзя.
-
-### Прочее
-
-| Что | Как |
+| Поле | Что в нём |
 | --- | --- |
-| Таймеры | `self.run_later(секунды, func)`, `self.run_every(секунды, func)`, `self.cancel_timer(id)` |
-| Своя папка | `self.get_data_dir()` — удаляется вместе с плагином |
-| Сеть | `http_utils.get_async(url, callback)`, `post_async`; блокирующие `get` / `post` — только вне потока интерфейса |
-| Буфер, ссылки | `android_utils.copy_to_clipboard`, `open_url`, `share_text`, `run_on_ui_thread` |
-| Журнал | `self.log("…")`, `self.logger.exception("…")` |
+| `chat_id`, `account` | где нажали |
+| `message` | `MessageObject` приложения, если нажали на сообщении |
+| `text`, `message_id`, `is_mine` | текст, номер и принадлежность этого сообщения |
+| `user`, `chat` | `TLRPC.User` или `TLRPC.Chat` |
+| `fragment`, `activity` | экран и Activity |
+| `reply(text)` | ответить на сообщение |
+
+`when=` — функция от того же `ctx`: вернула `False` — пункт не показывается. `order=` — порядок среди пунктов плагинов.
+
+## Настройки
+
+```python
+from ngram import kit
+
+plugin.settings.define(
+    kit.Section("Заметки"),
+    kit.Switch("remind", "Показывать при открытии чата", default=True),
+    kit.Number("length", "Сколько знаков", 40, 200, default=80, step=40),
+    kit.Choice("style", "Вид", ["Кратко", "Полностью"], default=0),
+    kit.Text("prefix", "Подпись", default=""),
+    kit.Button("Все заметки", on_tap=show_all),
+    kit.Page("Ещё", kit.Switch("debug", "Подробный журнал")),
+    kit.Note("Заметки хранятся только на устройстве."),
+)
+```
+
+| Строка | Что это |
+| --- | --- |
+| `Section(title)` | заголовок группы |
+| `Note(text)` | серый текст под группой; закрывает её |
+| `Switch(key, title, default, note)` | переключатель |
+| `Choice(key, title, options, default)` | один из вариантов; хранится номер |
+| `Number(key, title, low, high, default, step, unit)` | целое число из диапазона; хранится само число |
+| `Text(key, title, default, multiline, limit)` | строка текста |
+| `Button(title, on_tap, danger)` | кнопка |
+| `Page(title, *rows)` | вложенная страница |
+
+Значение читается как `plugin.settings["remind"]`, пишется так же. У строк со значением есть `on_change=`.
+
+## Хранилище, тексты, таймеры
+
+```python
+plugin.store["last"] = 42            # словарь, который переживает перезапуск (значения JSON)
+path = plugin.folder                 # своя папка; удаляется вместе с плагином
+
+plugin.strings(ru={"hi": "Привет"}, en={"hi": "Hello"})
+plugin.t("hi")                       # на языке приложения; запасной — английский
+
+@plugin.every(60)                    # раз в минуту, вне потока интерфейса, пока плагин включён
+def tick(): ...
+
+timer = plugin.after(5, lambda: ui.toast("Прошло 5 секунд"))
+plugin.cancel(timer)
+
+@plugin.started                      # плагин включили или приложение запустилось с ним
+def hello(): ...
+
+@plugin.stopped                      # плагин выключают; таймеры и пункты меню снимаются сами
+def bye(): ...
+
+@plugin.export                       # отдать функцию другим плагинам
+def shout(text): return text.upper()
+
+from ngram import use
+other = use("text_tools")            # None, если тот плагин не включён
+```
+
+## Интерфейс, чаты, сеть
+
+```python
+from ngram import ui, chats, net
+
+ui.toast("Готово", kind="ok")                         # info, ok, error; button=("Отменить", fn)
+ui.alert("Стереть?", "Это нельзя отменить.", ok="Стереть", cancel="Отмена", on_ok=fn, danger=True)
+ui.ask("Заметка", on_text=save, hint="Текст", text="как было")
+ui.choose("Язык", ["Русский", "English"], on_pick=lambda i: ...)
+ui.sheet("Сведения", {"Версия": "1.0", "Чатов": 12})  # лист; нажатие на значение копирует его
+ui.copy(text); ui.share(text); ui.open_url(url); ui.on_ui(fn)
+
+chats.current()                                       # номер чата на экране или 0
+chats.send(chat_id, "**жирный** текст")               # Markdown по умолчанию
+chats.send_file(chat_id, path, caption="…", as_photo=False)
+chats.edit(message, "новый текст")                    # своё сообщение
+chats.open(chat_id); chats.title(chat_id); chats.user(id); chats.chat(id); chats.me()
+
+net.get(url, then=lambda response, error: ...)        # в фоне; ответ — в потоке интерфейса
+net.post(url, json={...}, then=...)
+response = net.get(url)                               # ждёт ответа: только вне потока интерфейса
+```
+
+Номер чата положительный у человека и отрицательный у группы и канала. Сообщения, которые отправил сам плагин, через обработчики `message.sending` не проходят — зациклиться нельзя.
+
+### Пакеты Python
+
+```python
+# @requires emoji, humanize
+```
+
+Если пакета на устройстве нет, диалог установки спросит разрешения и скачает его с pypi.org в папку плагинов. Берутся только пакеты на чистом Python (`py3-none-any`), до 12 МБ: компилятора на телефоне нет.
+
+## Доступ к приложению
+
+```python
+from ngram import tg
+
+req = tg.TL.TL_help_getNearestDc()
+tg.request(req, lambda response, error: plugin.log(response.country if response else error.text))
+
+tg.call(req)                                   # то же, но ждёт ответа; не для потока интерфейса
+tg.controller()                                # MessagesController
+tg.java("org.telegram.messenger.FileLoader")   # любой класс приложения или Android
+tg.listener("java.lang.Runnable", run=fn)      # объект с интерфейсом Java из функций Python
+
+from org.telegram.messenger import MessageObject   # классы приложения импортируются напрямую
+```
+
+Устройство классов приложения определяет Telegram, и оно меняется от версии к версии. Остальной набор от этого не зависит.
+
+## Страховка и нагрузка
+
+| Что | Как работает |
+| --- | --- |
+| Самоотключение | Плагин, чьи обработчики ошиблись 8 раз подряд, выключается; причина видна на его странице. |
+| Безопасный режим | Если приложение дважды подряд закрылось в первые секунды после запуска с плагинами, ни один не загружается, пока вы не разрешите. |
+| Медленные обработчики | Обработчик дольше 300 мс отмечается в журнале. |
+| Нагрузка | На странице плагина видно, сколько раз приложение его вызывало и сколько в среднем это заняло. |
+| Перезапуск | «Перечитать файл и запустить заново» на странице плагина. |
+
+Журнал: Плагины → «Журнал» (и `adb logcat -s NgramPlugin`).
 
 ## Совместимость с exteraGram
 
-Работает то, что описано выше: хуки запросов и обновлений по именам `TL_…`, перехват отправки, пункты меню, настройки, уведомления и диалоги, `client_utils`, прямой импорт `org.telegram.*` и чтение полей через `hook_utils.get_private_field`.
+Файл с константами `__id__ = "…"` и классом, унаследованным от `BasePlugin`, загружается тем же движком. Работают имена из SDK exteraGram: `base_plugin`, `client_utils`, `android_utils`, `hook_utils`, `file_utils`, `ui.settings`, `ui.alert`, `ui.bulletin`; хуки запросов и обновлений по именам `TL_…`, перехват отправки, пункты меню, настройки.
 
-**Не работает** подмена методов приложения: `hook_method`, `hook_all_methods`, `MethodHook`, `MethodReplacement`. Для неё exteraGram использует встроенный фреймворк перехвата, которого в Ngram нет; такие вызовы завершаются понятной ошибкой, и плагин не загружается. Плагины, построенные только на этом, здесь не заработают.
+**Не работает** подмена методов приложения: `hook_method`, `hook_all_methods`, `MethodHook`, `MethodReplacement`. Для неё нужен встроенный фреймворк перехвата, которого в Ngram нет: он ломается с каждой версией Android и приложения. Такой вызов завершается понятной ошибкой, и плагин не загружается. Вместо подмены у Ngram — [события](#события), в том числе любые уведомления приложения.
 
-Отличия:
-
-- ответ на запрос и обновления плагин видит, но не может подменить;
-- строки настроек `Custom` (собственные виджеты плагина) не показываются;
-- условие пункта меню в виде строки MVEL игнорируется — используйте функцию.
+| | Набор Ngram | SDK exteraGram в Ngram |
+| --- | --- | --- |
+| Описание плагина | паспорт из комментариев | константы `__id__`, `__name__`… |
+| Устройство | функции и декораторы | класс `BasePlugin` |
+| События приложения | да, включая `app:<имя>` | хуки `TL_…` |
+| Проверка кода перед установкой | да | да |
+| Пакеты с pypi.org | `@requires` | — |
+| Обновление по ссылке | `@update` | — |
+| Подмена методов | нет | нет |
 
 ## Отладка
 
@@ -165,16 +313,26 @@ from org.telegram.tgnet import TLRPC          # классы приложени�
 
 ```bash
 adb push my.plugin /data/local/tmp/my.plugin
+```
+
+```bash
 adb shell am start -n org.ngram.messenger/org.telegram.messenger.DefaultIcon --es plugin /data/local/tmp/my.plugin
+```
+
+```bash
 adb logcat -s NgramPlugin
 ```
+
+В любой сборке: поправили файл на устройстве — нажмите «Перечитать файл и запустить заново».
 
 ## Код
 
 | Файл | Что в нём |
 | --- | --- |
-| `Ngram_App/src/main/python/` | SDK: `base_plugin`, `plugin_host`, `client_utils`, `android_utils`, `hook_utils`, `http_utils`, `file_utils`, `ui/` |
-| `plugins/Plugins.java` | Движок: файлы, запуск Python, включение, хуки, страховка |
+| `Ngram_App/src/main/python/ngram/` | Набор Ngram: `_plugin` (ручка, события, команды, меню), `kit`, `ui`, `chats`, `net`, `tg` |
+| `Ngram_App/src/main/python/plugin_host.py` | Движок: чтение паспорта, проверка кода, пакеты, загрузка, раздача событий |
+| `Ngram_App/src/main/python/base_plugin.py` и соседние | SDK, совместимый с exteraGram |
+| `plugins/Plugins.java` | Файлы, запуск Python, включение, события приложения, страховка |
 | `plugins/PluginBridge.java` | То, что вызывает Python: диалоги, отправка, экран |
 | `plugins/PluginMenus.java` | Пункты меню плагинов |
 | `ui/PluginsFragment.java`, `ui/PluginFragment.java` | Экраны |

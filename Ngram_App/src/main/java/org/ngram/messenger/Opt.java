@@ -16,6 +16,7 @@ public final class Opt {
     public static final String MENU_SAVE = "menuSave";
     public static final String MENU_COPY_PHOTO = "menuCopyPhoto";
     public static final String MENU_STICKER = "menuSticker";
+    public static final String MENU_REMIND = "menuRemind";
 
     private Opt() {
     }

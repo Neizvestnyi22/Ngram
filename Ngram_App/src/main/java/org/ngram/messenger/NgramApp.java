@@ -21,9 +21,16 @@ public class NgramApp extends ApplicationLoader {
         super.onCreate();
         NgramConfig.init();
         keepConnectionInBackground();
-        Legacy.cleanUpOnce(this);
         org.ngram.messenger.features.Diagnostics.install(this);
-        org.ngram.messenger.Share.cleanOld();
+        // Housekeeping nobody waits for: off the main thread, so the first screen comes sooner.
+        org.telegram.messenger.Utilities.globalQueue.postRunnable(() -> {
+            try {
+                Legacy.cleanUpOnce(this);
+                org.ngram.messenger.Share.cleanOld();
+            } catch (Throwable e) {
+                org.telegram.messenger.FileLog.e(e);
+            }
+        }, 4000);
     }
 
     @Override

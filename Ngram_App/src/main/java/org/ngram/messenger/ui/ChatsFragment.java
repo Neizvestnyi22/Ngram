@@ -36,6 +36,7 @@ public class ChatsFragment extends NgramFragment {
     private static final int MENU_COPY_PHOTO = 22;
     private static final int MENU_STICKER = 23;
     private static final int MENU_DETAILS = 24;
+    private static final int MENU_REMIND = 25;
     private static final int TEMPLATES = 30;
     private static final int HIDE_PHONE = 40;
     private static final int SECURE = 41;
@@ -87,6 +88,7 @@ public class ChatsFragment extends NgramFragment {
 
         items.add(UItem.asHeader(tr("Меню сообщения", "Message Menu")));
         items.add(UItem.asCheck(MENU_SAVE, tr("В Избранное", "To Saved Messages")).setChecked(Opt.menu(Opt.MENU_SAVE)));
+        items.add(UItem.asCheck(MENU_REMIND, tr("Напомнить", "Remind Me")).setChecked(Opt.menu(Opt.MENU_REMIND)));
         items.add(UItem.asCheck(MENU_REPEAT, tr("Повторить", "Repeat")).setChecked(Opt.menu(Opt.MENU_REPEAT)));
         items.add(UItem.asCheck(MENU_COPY_PHOTO, tr("Копировать фото", "Copy Photo")).setChecked(Opt.menu(Opt.MENU_COPY_PHOTO)));
         items.add(UItem.asCheck(MENU_STICKER, tr("Сохранить стикер как картинку", "Save a Sticker as a Picture")).setChecked(Opt.menu(Opt.MENU_STICKER)));
@@ -144,6 +146,9 @@ public class ChatsFragment extends NgramFragment {
                 break;
             case MENU_SAVE:
                 Opt.set(Opt.MENU_SAVE, !Opt.menu(Opt.MENU_SAVE));
+                break;
+            case MENU_REMIND:
+                Opt.set(Opt.MENU_REMIND, !Opt.menu(Opt.MENU_REMIND));
                 break;
             case MENU_REPEAT:
                 Opt.set(Opt.MENU_REPEAT, !Opt.menu(Opt.MENU_REPEAT));

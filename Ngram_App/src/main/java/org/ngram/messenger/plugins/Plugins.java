@@ -53,7 +53,9 @@ public final class Plugins {
     private static final String KEY_ENABLED = "pluginsEnabled";
     private static final String KEY_BOOT = "pluginsBoot";
     private static final int START_DELAY_MS = 1500;
-    private static final int ALIVE_AFTER_MS = 10000;
+    // Long enough for every plugin to load and run its first code, short enough that closing
+    // the app by hand right after opening it is not taken for a crash.
+    private static final int ALIVE_AFTER_MS = 5000;
     private static final int LOG_LINES = 300;
 
     /** One plugin file. */
@@ -398,7 +400,7 @@ public final class Plugins {
         final SharedPreferences prefs = NgramConfig.prefs();
         final int unfinished = prefs == null ? 0 : prefs.getInt(KEY_BOOT, 0);
         if (unfinished >= 2) {
-            // Twice in a row the app did not live ten seconds after loading plugins.
+            // Twice in a row the app did not live a few seconds after loading plugins.
             safeMode = true;
             log("", "W", "Safe mode: the app did not survive its last two starts with plugins, so none is loaded.");
             return;

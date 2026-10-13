@@ -25,6 +25,9 @@ dependencies {
     implementation 'androidx.core:core:1.16.0'
     // The main activity is a FragmentActivity; the compiler needs the class to resolve calls to it.
     implementation 'androidx.fragment:fragment:1.2.0'
+    // Puts the baseline profile (src/main/baseline-prof.txt) to work on a phone the app was
+    // installed on from a file: without a store, nothing else would hand it to the system.
+    implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
 }
 

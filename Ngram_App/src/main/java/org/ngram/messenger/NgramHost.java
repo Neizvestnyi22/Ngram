@@ -86,10 +86,74 @@ public final class NgramHost implements NgramHooks.Host {
         Plugins.onUpdates(account, updates);
     }
 
+    // Texts in which the app speaks of itself while asking for a permission. Telegram's own
+    // wording is kept, in whatever language it comes, with the app's name put right.
+    private static final int[] SELF_NAMED = sorted(
+        org.telegram.messenger.R.string.ContactsPermissionAlert, org.telegram.messenger.R.string.NotificationsPermissionAlertSubtitle,
+        org.telegram.messenger.R.string.AllowReadCall, org.telegram.messenger.R.string.AllowReadCallAndLog,
+        org.telegram.messenger.R.string.AllowReadCallLog, org.telegram.messenger.R.string.AllowFillNumber,
+        org.telegram.messenger.R.string.PermissionStorageWithHint, org.telegram.messenger.R.string.PermissionNoAudioWithHint,
+        org.telegram.messenger.R.string.PermissionNoBluetoothWithHint, org.telegram.messenger.R.string.PermissionNoAudioVideoWithHint,
+        org.telegram.messenger.R.string.PermissionNoCameraWithHint, org.telegram.messenger.R.string.PermissionNoCameraMicVideo,
+        org.telegram.messenger.R.string.PermissionNoLocation, org.telegram.messenger.R.string.PermissionNoLocationStory,
+        org.telegram.messenger.R.string.PermissionNoLocationFriends, org.telegram.messenger.R.string.PermissionNoLocationNavigation,
+        org.telegram.messenger.R.string.PermissionNoContactsSharing, org.telegram.messenger.R.string.PermissionNoContactsSaving,
+        org.telegram.messenger.R.string.PermissionNoStorageAvatar, org.telegram.messenger.R.string.PermissionNoAudioStorageStory,
+        org.telegram.messenger.R.string.PermissionDrawAboveOtherApps, org.telegram.messenger.R.string.PermissionDrawAboveOtherAppsGroupCall,
+        org.telegram.messenger.R.string.PermissionXiaomiLockscreen, org.telegram.messenger.R.string.PermissionFSILockscreen,
+        org.telegram.messenger.R.string.PermissionBackgroundLocation, org.telegram.messenger.R.string.AllowBackgroundActivityInfo,
+        org.telegram.messenger.R.string.AllowBackgroundActivityInfoOneUIBelowS, org.telegram.messenger.R.string.AllowBackgroundActivityInfoOneUIAboveS);
+    private static final ThreadLocal<Boolean> renaming = new ThreadLocal<>();
+    private static final android.util.SparseArray<String> renamed = new android.util.SparseArray<>();
+    private static String renamedFor = "";
+
+    private static int[] sorted(int... ids) {
+        java.util.Arrays.sort(ids);
+        return ids;
+    }
+
+    /** Telegram's text for {@code resId} in the current language, with the app's name put right. */
+    private static String selfNamed(int resId) {
+        if (Boolean.TRUE.equals(renaming.get())) {
+            // The look-up below has come back here: let Telegram's own text through this once.
+            return null;
+        }
+        final java.util.Locale locale = org.telegram.messenger.LocaleController.getInstance().getCurrentLocale();
+        final String language = locale == null ? "" : locale.toString();
+        synchronized (renamed) {
+            if (!language.equals(renamedFor)) {
+                renamed.clear();
+                renamedFor = language;
+            }
+            final String ready = renamed.get(resId);
+            if (ready != null) {
+                return ready;
+            }
+        }
+        renaming.set(true);
+        final String original;
+        try {
+            original = org.telegram.messenger.LocaleController.getString(resId);
+        } finally {
+            renaming.set(false);
+        }
+        if (original == null) {
+            return null;
+        }
+        final String fixed = original.replace("Telegram", "Ngram");
+        synchronized (renamed) {
+            renamed.put(resId, fixed);
+        }
+        return fixed;
+    }
+
     @Override
     public String string(int resId, String key) {
         if (resId == org.telegram.messenger.R.string.AppName || resId == org.telegram.messenger.R.string.AppNameBeta) {
             return "Ngram";
+        }
+        if (resId != 0 && java.util.Arrays.binarySearch(SELF_NAMED, resId) >= 0) {
+            return selfNamed(resId);
         }
         if (resId == org.telegram.messenger.R.string.Page1Message) {
             return tr("Клиент Telegram в жидком стекле.\n**Быстрый**, **бесплатный** и **безопасный**.",

@@ -4,7 +4,7 @@
 
 # Ngram
 
-**An unofficial Telegram client for Android: all of Telegram, plus adjustable liquid glass, tools for chats, an assistant that runs on your own AI key, and plugins.**
+**An unofficial Telegram client for Android: all of Telegram, plus an iOS-style look, a feed of your channels, an assistant that runs on your own AI key, and plugins.**
 
 Built on the source code of Telegram for Android 12.10.6 · GPL-2.0
 
@@ -13,29 +13,50 @@ Built on the source code of Telegram for Android 12.10.6 · GPL-2.0
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/chats.png" width="24%" alt="Chat list">
-  <img src="docs/screenshots/chat.png" width="24%" alt="Chat">
-  <img src="docs/screenshots/look-glass.png" width="24%" alt="Glass settings">
-  <img src="docs/screenshots/assistant.png" width="24%" alt="Assistant">
+  <img src="docs/screenshots/chats.png" width="24%" alt="Chat list with the Feed tab">
+  <img src="docs/screenshots/chat.png" width="24%" alt="Chat: unread count by the back arrow, a title as wide as the name, buttons apart from the field">
+  <img src="docs/screenshots/feed.png" width="24%" alt="Channel feed">
+  <img src="docs/screenshots/hub.png" width="24%" alt="Ngram settings">
 </p>
 
 ## What it is
 
-Ngram is Telegram for Android with these things added:
+Ngram is Telegram for Android with things added that Telegram itself does not have:
 
-- **Look.** Sliders for the liquid glass (density, blur, edge refraction, edge highlight), a colour tint, ready-made and saved sets, three kinds of button press (jelly, glass, plain), iOS-style switches, six app icons, and options for the main screen.
-- **Assistant.** Conversations with an AI model and actions on messages: explain, translate, summarize, suggest a reply, read a picture, transcribe a voice message. It works with your own API key — OpenAI, Claude, Gemini, OpenRouter, a local Ollama, or any OpenAI-compatible service. Requests go from the phone straight to the provider; Ngram has no servers.
-- **Chats.** Seconds in message times, exact numbers, your own double-tap action, sticker size, a question before a sticker, a GIF or a call, "listen first" for voice messages, templates, chat export and statistics, details of a message and of a profile.
-- **Plugins.** Extensions in Python with exteraGram's SDK names: commands, menu entries, settings of their own. Replacing the app's methods (`hook_method`) is not supported.
-- **Its own name and icons.** Ngram does not pass itself off as the official app.
+- **An iOS-style chat screen.** The unread count next to the back arrow, a title capsule as wide as the chat's name, the attach and record buttons standing apart from the message field, glass that gives under the finger, coloured profile headers.
+- **Feed.** The newest posts of all the channels you follow in one list on a tab of its own, with "read later" and an assistant digest. No recommendations: your channels only.
+- **Liquid glass your way.** Sliders for density, blur, edge refraction and highlight, a colour tint, ready-made and saved sets, three kinds of button press.
+- **Messaging tools.** A reminder set from a message, your own double-tap action, templates, chat export and breakdown, a list of unsent texts, a question before a sticker, a GIF or a call.
+- **Assistant.** A panel of actions over a message, a chat or the feed. It works with your own API key — OpenAI, Claude, Gemini, OpenRouter, a local Ollama, or any OpenAI-compatible service. Requests go from the phone straight to the provider; Ngram has no servers.
+- **Plugins.** Extensions in Python written with Ngram's own kit: commands, events, menu entries, settings, a store, timers, network. The file is read before it is installed and you are shown what its code can do. exteraGram-style plugins load too; replacing the app's methods (`hook_method`) is not supported.
+- **Sixteen app icons**, from plain to meme.
 
 There is no "ghost mode" and there will not be one: hiding read marks, typing or online status, and getting around copy protection in chats, are forbidden by Telegram's terms for third-party apps.
 
-Everything else — chats, calls, stories, secret chats, folders, bots — is Telegram's own code, unchanged.
+Everything else — chats, calls, stories, secret chats, folders, bots — is Telegram's own code, unchanged. Ngram does not duplicate Telegram's settings: its own corner (`Settings → Ngram`) holds only what Telegram lacks.
 
 > [!IMPORTANT]
-> Ngram is not affiliated with Telegram. Version 3.1 is early: its own features were checked in an emulator on a made-up account. Signing in with a real account, the arm64 build on a phone and the assistant with a real key were not checked by the author.
+> Ngram is not affiliated with Telegram. Its own features were checked in an emulator on a made-up account. Signing in with a real account, the arm64 build on a real phone and the assistant with a real key were not checked by the author.
 
+A plugin in Ngram's kit:
+
+```python
+# @id      hello
+# @name    Hello, world
+# @version 1.0
+
+from ngram import plugin, ui
+
+@plugin.command(".hello", help="send a greeting")
+def hello(cmd):
+    return "Hello, %s!" % (cmd.args or "world")
+
+@plugin.on("chat.open")
+def opened(event):
+    ui.toast("Chat %d is open" % event.chat_id)
+```
+
+The documentation is in Russian: [look](docs/look.md), [feed](docs/feed.md), [messaging](docs/chats.md), [assistant](docs/assistant.md), [plugins](docs/plugins.md), [architecture](docs/architecture.md), [building](docs/building.md), [changes to Telegram's code](docs/changes.md).
 ## How it is put together
 
 Telegram's code lives in `TMessagesProj` and is barely touched: about thirty files, every change marked with a `// Ngram:` comment. Everything of Ngram's own lives in the separate `Ngram_App` module and talks to Telegram's code through three small classes in `org.ngram.core` (`NgramHooks`, `NgramConfig`, `NgramMotion`). A new Telegram release can therefore be taken with a plain `git merge`.
